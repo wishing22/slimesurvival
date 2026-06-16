@@ -137,19 +137,19 @@ const UPGRADES_STATIC=[
   {id:'heartrate',icon:'💓', name:'Heart Rate',    desc:'Hearts spawn 40% more often',              type:'heal',  htype:'heartRate'},
 ];
 
-// Infinitely repeatable scaling upgrades — always available, stack indefinitely.
-// Each pick applies a fixed multiplier and increments a stack counter on the player.
+// Infinitely repeatable scaling upgrades — always available, stack with soft caps.
+// Multipliers are smaller per pick to prevent one-shotting everything.
 const SCALING_UPGRADES=[
   {id:'sc_dmg',    icon:'⚔️🔥', skey:'dmg',    name:'Power Surge',      type:'scaling',
-   desc:(n)=>`All weapon & skill damage ×1.20 (stack ${n+1})`,           mult:1.20, stat:'damageMult'},
+   desc:(n)=>`All damage ×1.08 · cap ×8 (stack ${n+1})`,               mult:1.08, stat:'damageMult',   cap:8.0},
   {id:'sc_cdmg',   icon:'⚡💥', skey:'cdmg',   name:'Skill Overcharge',  type:'scaling',
-   desc:(n)=>`All skill damage ×1.25, faster cooldowns (stack ${n+1})`,  mult:1.25, stat:'skillDmgMult'},
+   desc:(n)=>`Skill damage ×1.10 · cap ×5 (stack ${n+1})`,             mult:1.10, stat:'skillDmgMult', cap:5.0},
   {id:'sc_hp',     icon:'❤️⬆️', skey:'hp',    name:'Iron Flesh',        type:'scaling',
-   desc:(n)=>`Max HP +80 and heal fully (stack ${n+1})`,                  flat:80,   stat:'hp'},
+   desc:(n)=>`Max HP +80 and heal fully (stack ${n+1})`,                 flat:80,   stat:'hp'},
   {id:'sc_speed',  icon:'💨⚡', skey:'speed',  name:'Adrenaline Rush',   type:'scaling',
-   desc:(n)=>`Move speed +15%, weapon spin +20% (stack ${n+1})`,         type2:'speedspin'},
+   desc:(n)=>`Move speed +10%, weapon spin +15% (stack ${n+1})`,        type2:'speedspin'},
   {id:'sc_cd',     icon:'⏱️🔄', skey:'cd',    name:'Rapid Fire',        type:'scaling',
-   desc:(n)=>`All skill cooldowns −10% (stack ${n+1})`,                  type2:'cd'},
+   desc:(n)=>`All skill cooldowns −8% · floor 0.3s (stack ${n+1})`,     type2:'cd'},
 ];
 
 // Per-skill level-up cards. Levels 1-4 = base skill growth. Level 5 = EVOLUTION unlock.
@@ -216,7 +216,7 @@ function newGame(){
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
     scalingStacks:{dmg:0,cdmg:0,hp:0,speed:0,cd:0}, // track stacks per scaling upgrade
     regenRate:0,regenTickTimer:0,lifesteal:false,vampirism:false,healOrbs:false,heartRateBoost:1,
-    xp:0,xpNext:12,level:1,
+    xp:0,xpNext:80,level:1,
   };
   G={
     p,
@@ -259,22 +259,20 @@ function update(dt){
     document.getElementById('regenIcon').style.opacity=p.hp<p.maxHp?'1':'0';
   } else { document.getElementById('regenIcon').style.opacity='0'; }
 
-  // passive XP — ticks every second, scales with wave so it stays meaningful
-  // early waves: tiny (just a floor)
-  // wave 50+: ~100 XP/sec — enough to level once every 30–60s even with no kills
+  // passive XP — small floor, only meaningful at very high waves when kills dry up
   G.passiveXpTimer+=dt/60;
   if(G.passiveXpTimer>=1){
     G.passiveXpTimer=0;
     const w=G.wave;
-    // piecewise to match the HP scaling curve
-    const passiveXp = w<=10  ? Math.round(2+w*0.5)         // w1=2, w10=7
-                    : w<=30  ? Math.round(7+(w-10)*1.5)     // w10=7, w30=37
-                    : w<=60  ? Math.round(37+(w-30)*3)      // w30=37, w60=127
-                    : Math.round(127+(w-60)*8);             // w90=367, w100=447
-    addXp(passiveXp);
-    // small floating text so player knows it's ticking
-    if(G.p) G.texts.push({x:G.p.x,y:G.p.y-G.p.r-28,
-      txt:'+'+passiveXp+' XP',col:'#7F77DD',life:35});
+    const passiveXp = w<=20  ? 0                          // none early — earn your levels
+                    : w<=50  ? Math.round((w-20)*1.5)     // w20=0, w50=45
+                    : w<=80  ? Math.round(45+(w-50)*3)    // w50=45, w80=135
+                    : Math.round(135+(w-80)*5);           // w100=235
+    if(passiveXp>0){
+      addXp(passiveXp);
+      if(G.p) G.texts.push({x:G.p.x,y:G.p.y-G.p.r-28,
+        txt:'+'+passiveXp+' XP',col:'#7F77DD',life:30});
+    }
   }
 
   // movement
@@ -1114,12 +1112,12 @@ function addXp(v){
   const p=G.p; p.xp+=v;
   if(p.xp>=p.xpNext){
     p.xp-=p.xpNext;
-    // Additive XP growth with steeper increments at high levels:
-    // lv 1-20:  +15 XP  (~0.5s per level early)
-    // lv 21-50: +60 XP
-    // lv 51-80: +200 XP
-    // lv 81+:   +500 XP  (~10-15s per level at wave 27)
-    const inc = p.level>80 ? 500 : p.level>50 ? 200 : p.level>20 ? 60 : 15;
+    // XP required per level — much steeper to prevent trivial early levelling:
+    // lv 1-15:  +80 XP   (feels fast but not instant)
+    // lv 16-40: +200 XP
+    // lv 41-70: +600 XP
+    // lv 71+:   +1500 XP (each level is a real achievement)
+    const inc = p.level>70 ? 1500 : p.level>40 ? 600 : p.level>15 ? 200 : 80;
     p.xpNext=p.xpNext+inc;
     p.level++;
     showUpgrades();
@@ -1220,17 +1218,24 @@ function applyUpgrade(u){
     if(u.stat==='moveSpeed') p.moveSpeed*=(1+u.amt);
     else if(u.stat==='spinSpeed') p.spinSpeed*=(1+u.amt);
     else if(u.stat==='hp'){p.maxHp+=u.amt;p.hp=Math.min(p.hp+u.amt,p.maxHp);}
-    else if(u.stat==='damage') p.damageMult*=(1+u.amt);
+    else if(u.stat==='damage') p.damageMult=Math.min(8, p.damageMult*(1+u.amt));
     else if(u.stat==='magnet') p.magnetRange*=u.amt;
   } else if(u.type==='scaling'){
     if(!p.scalingStacks) p.scalingStacks={};
     p.scalingStacks[u._stackKey]=(p.scalingStacks[u._stackKey]||0)+1;
     const t2=u.type2||u.stat;
-    if(t2==='damageMult') p.damageMult*=u.mult;
-    else if(t2==='skillDmgMult') { p.skillDmgMult=(p.skillDmgMult||1)*u.mult; p.cdReduction=(p.cdReduction||1)*0.92; }
-    else if(t2==='hp') { p.maxHp+=u.flat; p.hp=p.maxHp; }
-    else if(t2==='speedspin') { p.moveSpeed*=1.15; p.spinSpeed*=1.20; }
-    else if(t2==='cd') { p.cdReduction=(p.cdReduction||1)*0.90; }
+    if(t2==='damageMult'){
+      p.damageMult=Math.min((u.cap||8), p.damageMult*u.mult);
+    } else if(t2==='skillDmgMult'){
+      p.skillDmgMult=Math.min((u.cap||5), (p.skillDmgMult||1)*u.mult);
+      p.cdReduction=(p.cdReduction||1)*0.95; // smaller CD bonus per pick
+    } else if(t2==='hp'){
+      p.maxHp+=u.flat; p.hp=p.maxHp;
+    } else if(t2==='speedspin'){
+      p.moveSpeed*=1.10; p.spinSpeed*=1.15; // reduced from 1.15/1.20
+    } else if(t2==='cd'){
+      p.cdReduction=Math.max(0.25, (p.cdReduction||1)*0.92); // floor at 0.25 (75% reduction max)
+    }
   } else if(u.type==='heal'){
     if(u.htype==='regen'){ p.regenRate=Math.max(p.regenRate,4); if(p.regenTickTimer<=0)p.regenTickTimer=5; }
     else if(u.htype==='regenBoost'){p.regenRate+=(u.amt||4); if(p.regenTickTimer<=0)p.regenTickTimer=5;}
