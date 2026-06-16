@@ -1286,8 +1286,10 @@ async function clearScores(password){
       method:'DELETE',
       headers:{...SB_HEADERS,'Prefer':'return=minimal'}
     });
+    const text=await res.text();
+    console.log('DELETE status:',res.status,'body:',text);
     return res.ok||res.status===204||res.status===200;
-  } catch(e){ return false; }
+  } catch(e){ console.log('DELETE error:',e); return false; }
 }
 
 async function submitScore(entry){
