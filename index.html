@@ -1280,15 +1280,13 @@ async function fetchScores(){
 }
 
 async function clearScores(password){
-  // Simple password check — not server-enforced but stops casual clearing
-  if(password !== 'slimeadmin2025') return false;
+  if(password !== 'slimeadmin2026') return false;
   try{
-    // Supabase REST delete: delete all rows
-    const res=await fetch(SB_URL+'/scores?id=gte.0',{
+    const res=await fetch(SB_URL+'/scores?id=gt.0',{
       method:'DELETE',
-      headers:{...SB_HEADERS, 'Prefer':'return=minimal'}
+      headers:{...SB_HEADERS,'Prefer':'return=minimal'}
     });
-    return res.ok||res.status===204;
+    return res.ok||res.status===204||res.status===200;
   } catch(e){ return false; }
 }
 
