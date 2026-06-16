@@ -89,12 +89,13 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
     <button class="btn" style="background:#1a1a2e;border:1px solid #333;font-size:13px;" id="skipNameBtn">Skip</button>
   </div>
   <div id="leaderboardScreen">
-    <h2>🏆 Leaderboard</h2>
+    <h2 id="lbTitle" style="cursor:default;user-select:none;">🏆 Leaderboard</h2>
     <table class="lbTable">
       <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Wave</th><th>Level</th><th>Time</th></tr></thead>
       <tbody id="lbBody"></tbody>
     </table>
     <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbCloseBtn">← Back</button>
+    <button class="btn" id="adminClearBtn" style="display:none;background:#3a0808;border:1px solid #7a1a1a;font-size:13px;margin-top:6px;">🗑 Clear All Scores</button>
   </div>
   <div id="pauseScreen">
     <h2>⏸ Paused</h2>
@@ -216,7 +217,7 @@ function newGame(){
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
     scalingStacks:{dmg:0,cdmg:0,hp:0,speed:0,cd:0}, // track stacks per scaling upgrade
     regenRate:0,regenTickTimer:0,lifesteal:false,vampirism:false,healOrbs:false,heartRateBoost:1,
-    xp:0,xpNext:80,level:1,
+    xp:0,xpNext:20,level:1,
   };
   G={
     p,
@@ -1112,12 +1113,12 @@ function addXp(v){
   const p=G.p; p.xp+=v;
   if(p.xp>=p.xpNext){
     p.xp-=p.xpNext;
-    // XP required per level — much steeper to prevent trivial early levelling:
-    // lv 1-15:  +80 XP   (feels fast but not instant)
-    // lv 16-40: +200 XP
-    // lv 41-70: +600 XP
-    // lv 71+:   +1500 XP (each level is a real achievement)
-    const inc = p.level>70 ? 1500 : p.level>40 ? 600 : p.level>15 ? 200 : 80;
+    // XP per level — gentle early, steep late:
+    // lv 1-15:  +20  (quick early upgrades, ~5 levels per wave)
+    // lv 16-40: +120 (~2-3 per wave mid-game)
+    // lv 41-70: +500 (~1 per wave)
+    // lv 71+:   +1500 (each level is an achievement)
+    const inc = p.level>70 ? 1500 : p.level>40 ? 500 : p.level>15 ? 120 : 20;
     p.xpNext=p.xpNext+inc;
     p.level++;
     showUpgrades();
@@ -1273,6 +1274,19 @@ async function fetchScores(){
     if(!res.ok) return [];
     return await res.json();
   } catch(e){ return []; }
+}
+
+async function clearScores(password){
+  // Simple password check — not server-enforced but stops casual clearing
+  if(password !== 'slimeadmin2025') return false;
+  try{
+    // Supabase REST delete: delete all rows
+    const res=await fetch(SB_URL+'/scores?id=gte.0',{
+      method:'DELETE',
+      headers:{...SB_HEADERS, 'Prefer':'return=minimal'}
+    });
+    return res.ok||res.status===204;
+  } catch(e){ return false; }
 }
 
 async function submitScore(entry){
@@ -2156,7 +2170,34 @@ document.getElementById('lbCloseBtn').addEventListener('touchend',e=>{
     <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn3">🏆 Leaderboard</button>`;
   document.getElementById('startBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
   document.getElementById('lbBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';showLeaderboard(null);});
-},{passive:false});
+},{passive:false});// ---- ADMIN: long-press trophy title 2s to reveal clear button ----
+let lbTitleHoldTimer=null;
+const lbTitle=document.getElementById('lbTitle');
+function startLbHold(){lbTitleHoldTimer=setTimeout(()=>{document.getElementById('adminClearBtn').style.display='block';lbTitle.textContent='🏆 Leaderboard 🔑';},2000);}
+function cancelLbHold(){clearTimeout(lbTitleHoldTimer);}
+lbTitle.addEventListener('mousedown',startLbHold);
+lbTitle.addEventListener('mouseup',cancelLbHold);
+lbTitle.addEventListener('mouseleave',cancelLbHold);
+lbTitle.addEventListener('touchstart',e=>{e.preventDefault();startLbHold();},{passive:false});
+lbTitle.addEventListener('touchend',e=>{e.preventDefault();cancelLbHold();},{passive:false});
+
+document.getElementById('adminClearBtn').addEventListener('click',async()=>{
+  const pw=prompt('Enter admin password:');
+  if(!pw) return;
+  const btn=document.getElementById('adminClearBtn');
+  btn.textContent='Clearing…';btn.disabled=true;
+  const ok=await clearScores(pw);
+  if(ok){
+    document.getElementById('adminClearBtn').style.display='none';
+    lbTitle.textContent='🏆 Leaderboard';
+    const scores=await fetchScores();
+    renderLeaderboard(scores,null);
+  } else {
+    btn.textContent='✗ Wrong password';
+    btn.style.background='#5a0a0a';
+    setTimeout(()=>{btn.textContent='🗑 Clear All Scores';btn.style.background='#3a0808';btn.disabled=false;},2000);
+  }
+});
 
 
 requestAnimationFrame(loop);
