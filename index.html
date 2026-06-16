@@ -307,7 +307,7 @@ function update(dt){
           const dmg=Math.round((w.type==='spear'?35:28)*p.damageMult); // was 18/14
           hitEnemy(e,dmg);
           w.hitCD[e.id]=12; // slightly faster hit rate too
-          if(p.lifesteal) healPlayer(Math.max(1,Math.round(dmg*0.1)),false);
+          if(p.lifesteal) healPlayer(Math.max(1,Math.round(dmg*0.1)),true);
         }
       });
     });
@@ -1091,7 +1091,7 @@ function killEnemy(e){
       });
     }
   });
-  if(G.p.vampirism) healPlayer(5,false);
+  if(G.p.vampirism) healPlayer(5,true);
 }
 
 function healPlayer(amt,show){
@@ -1228,9 +1228,10 @@ function applyUpgrade(u){
     const t2=u.type2||u.stat;
     if(t2==='damageMult') p.damageMult*=u.mult;
     else if(t2==='skillDmgMult') { p.skillDmgMult=(p.skillDmgMult||1)*u.mult; p.cdReduction=(p.cdReduction||1)*0.92; }
-    else if(t2==='hp') { p.maxHp+=u.flat; p.hp=p.maxHp; } // full heal on iron flesh
+    else if(t2==='hp') { p.maxHp+=u.flat; p.hp=p.maxHp; }
     else if(t2==='speedspin') { p.moveSpeed*=1.15; p.spinSpeed*=1.20; }
     else if(t2==='cd') { p.cdReduction=(p.cdReduction||1)*0.90; }
+  } else if(u.type==='heal'){
     if(u.htype==='regen'){ p.regenRate=Math.max(p.regenRate,4); if(p.regenTickTimer<=0)p.regenTickTimer=5; }
     else if(u.htype==='regenBoost'){p.regenRate+=(u.amt||4); if(p.regenTickTimer<=0)p.regenTickTimer=5;}
     else if(u.htype==='healOrbs') p.healOrbs=true;
@@ -1249,40 +1250,58 @@ function togglePause(){
   document.getElementById('pauseBtn').textContent=paused?'▶':'⏸';
 }
 
-// ---- LEADERBOARD ----
-const LB_KEY='slimeSurvivor_scores_v1';
+// ---- LEADERBOARD (Supabase) ----
+const SB_URL='https://kwzycpoblwclomkohukg.supabase.co/rest/v1';
+const SB_KEY='sb_publishable_NoYr9rJHPTYRHMhcOhx8eg_OdMldJzf';
+const SB_HEADERS={
+  'Content-Type':'application/json',
+  'apikey':SB_KEY,
+  'Authorization':'Bearer '+SB_KEY
+};
 
-function loadScores(){
-  try{ return JSON.parse(localStorage.getItem(LB_KEY)||'[]'); }
-  catch(e){ return []; }
+async function fetchScores(){
+  try{
+    const res=await fetch(
+      SB_URL+'/scores?select=name,score,wave,level,kills,time&order=score.desc&limit=10',
+      {headers:SB_HEADERS}
+    );
+    if(!res.ok) return [];
+    return await res.json();
+  } catch(e){ return []; }
 }
 
-function saveScore(entry){
-  const scores=loadScores();
-  scores.push(entry);
-  scores.sort((a,b)=>b.score-a.score);
-  const trimmed=scores.slice(0,10);
-  try{ localStorage.setItem(LB_KEY,JSON.stringify(trimmed)); }
-  catch(e){}
-  return trimmed;
+async function submitScore(entry){
+  try{
+    await fetch(SB_URL+'/scores',{
+      method:'POST',
+      headers:SB_HEADERS,
+      body:JSON.stringify({
+        name:entry.name,
+        score:entry.score,
+        wave:entry.wave,
+        level:entry.level,
+        kills:entry.kills,
+        time:entry.time
+      })
+    });
+  } catch(e){}
 }
 
-function renderLeaderboard(highlightScore){
-  const scores=loadScores();
+function renderLeaderboard(scores, highlightName){
   const tbody=document.getElementById('lbBody');
   if(!tbody) return;
-  if(scores.length===0){
-    tbody.innerHTML=`<tr><td colspan="6" style="color:#555;text-align:center;padding:20px;">No scores yet — play a game!</td></tr>`;
+  if(!scores||scores.length===0){
+    tbody.innerHTML=`<tr><td colspan="6" style="color:#555;text-align:center;padding:20px;">No scores yet — be the first!</td></tr>`;
     return;
   }
   tbody.innerHTML=scores.map((s,i)=>{
     const cls=i===0?'gold':i===1?'silver':i===2?'bronze':'';
-    const isNew=highlightScore&&s.score===highlightScore&&s.name===highlightScore._name?'lbNew':'';
+    const isNew=highlightName&&s.name===highlightName?'lbNew':'';
     const rank=['🥇','🥈','🥉'][i]||(i+1);
     return`<tr class="${cls} ${isNew}">
       <td style="color:#555">${rank}</td>
       <td>${s.name||'Anonymous'}</td>
-      <td style="color:#FFD700;font-weight:600">${s.score.toLocaleString()}</td>
+      <td style="color:#FFD700;font-weight:600">${Number(s.score).toLocaleString()}</td>
       <td>W${s.wave}</td>
       <td>Lv${s.level}</td>
       <td>${s.time}</td>
@@ -1290,9 +1309,12 @@ function renderLeaderboard(highlightScore){
   }).join('');
 }
 
-function showLeaderboard(highlightScore){
-  renderLeaderboard(highlightScore);
+async function showLeaderboard(highlightName){
+  const tbody=document.getElementById('lbBody');
+  if(tbody) tbody.innerHTML=`<tr><td colspan="6" style="color:#555;text-align:center;padding:20px;">Loading…</td></tr>`;
   document.getElementById('leaderboardScreen').style.display='flex';
+  const scores=await fetchScores();
+  renderLeaderboard(scores, highlightName);
 }
 
 function endGame(){
@@ -1301,12 +1323,8 @@ function endGame(){
   const s=Math.floor(G.elapsed%60).toString().padStart(2,'0');
   const timeStr=m+':'+s;
 
-  const entry={
-    score:G.score, wave:G.wave, level:G.p.level,
-    kills:G.kills, time:timeStr, name:'', ts:Date.now()
-  };
+  const entry={score:G.score,wave:G.wave,level:G.p.level,kills:G.kills,time:timeStr,name:''};
 
-  // Show name entry
   const nb=document.getElementById('nameEntryBox');
   document.getElementById('nameEntryStats').innerHTML=
     `Wave ${G.wave} · Level ${G.p.level} · ${G.kills} kills<br>`+
@@ -1315,17 +1333,18 @@ function endGame(){
   nb.style.display='flex';
   setTimeout(()=>document.getElementById('nameInput').focus(),100);
 
-  const submit=(name)=>{
+  const submit=async(name)=>{
     entry.name=name||'Anonymous';
-    entry._name=entry.name;
     nb.style.display='none';
-    saveScore(entry);
-    showLeaderboard(entry.score);
+    // show leaderboard immediately with a loading state, then submit and refresh
+    await showLeaderboard(entry.name);
+    await submitScore(entry);
+    const scores=await fetchScores();
+    renderLeaderboard(scores, entry.name);
   };
 
   const submitBtn=document.getElementById('submitScoreBtn');
   const skipBtn=document.getElementById('skipNameBtn');
-  // remove old listeners by cloning
   const newSubmit=submitBtn.cloneNode(true);
   const newSkip=skipBtn.cloneNode(true);
   submitBtn.parentNode.replaceChild(newSubmit,submitBtn);
