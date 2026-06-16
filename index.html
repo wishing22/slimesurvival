@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Slime Survivor</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:hidden;font-family:sans-serif;}
+#wrap{position:relative;width:100vw;height:100vh;}
+#gameCanvas{display:block;width:100%;height:100%;}
+#ui{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;}
+#topBar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(0,0,0,0.5);}
+#topBar span{color:#fff;font-size:14px;font-weight:500;}
+#pauseBtn{pointer-events:all;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);border-radius:10px;color:#fff;font-size:18px;width:40px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+#pauseBtn:active{transform:scale(0.95);}
+#waveLabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#FFD700;font-size:24px;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,0.9);pointer-events:none;opacity:0;transition:opacity 0.5s;white-space:nowrap;}
+#xpBar{position:absolute;bottom:0;left:0;right:0;height:6px;background:rgba(255,255,255,0.12);}
+#xpFill{height:100%;background:#7F77DD;width:0%;transition:width 0.15s;}
+#hpArea{position:absolute;bottom:14px;right:16px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+#hpLabel{color:#fff;font-size:12px;}
+#hpTrack{width:100px;height:9px;background:rgba(255,255,255,0.15);border-radius:5px;overflow:hidden;}
+#hpFill{height:100%;background:#1D9E75;border-radius:5px;transition:width 0.15s,background 0.3s;}
+#regenIcon{font-size:11px;color:#5DCAA5;opacity:0;transition:opacity 0.3s;text-align:right;}
+#joystickZone{position:absolute;bottom:24px;left:20px;width:120px;height:120px;pointer-events:all;}
+#joystickBase{position:absolute;width:120px;height:120px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.18);border-radius:50%;}
+#joystickStick{position:absolute;width:48px;height:48px;background:rgba(255,255,255,0.32);border-radius:50%;top:36px;left:36px;}
+#overlay{position:absolute;inset:0;background:rgba(8,8,20,0.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+#overlay h2{color:#FFD700;font-size:28px;font-weight:600;}
+#overlay p{color:#bbb;font-size:14px;text-align:center;max-width:300px;line-height:1.6;}
+.btn{background:#534AB7;color:#fff;border:none;border-radius:12px;padding:14px 36px;font-size:16px;font-weight:500;cursor:pointer;min-width:200px;}
+.btn:active{transform:scale(0.97);}
+.btn.green{background:#0F6E56;}
+#pauseScreen{position:absolute;inset:0;background:rgba(8,8,20,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+#pauseScreen h2{color:#fff;font-size:26px;font-weight:600;}
+#pauseScreen p{color:#999;font-size:13px;text-align:center;max-width:280px;line-height:1.5;}
+#upgradeScreen{position:absolute;inset:0;background:rgba(8,8,20,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;}
+#upgradeScreen h2{color:#FFD700;font-size:20px;font-weight:500;}
+.upgradeCard{background:#141428;border:1.5px solid #534AB7;border-radius:14px;padding:14px 18px;width:100%;max-width:340px;cursor:pointer;display:flex;gap:14px;align-items:center;}
+.upgradeCard:active{transform:scale(0.98);border-color:#AFA9EC;}
+.upgradeIcon{font-size:30px;min-width:44px;text-align:center;}
+.upgradeInfo h3{color:#fff;font-size:14px;font-weight:500;margin-bottom:4px;}
+.upgradeInfo p{color:#999;font-size:12px;line-height:1.4;}
+#leaderboardScreen{position:absolute;inset:0;background:rgba(8,8,20,0.97);display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px;overflow-y:auto;}
+#leaderboardScreen h2{color:#FFD700;font-size:22px;font-weight:600;margin-bottom:14px;}
+.lbTable{width:100%;max-width:380px;border-collapse:collapse;margin-bottom:18px;}
+.lbTable th{color:#777;font-size:11px;text-align:left;padding:4px 8px;border-bottom:1px solid #222;text-transform:uppercase;letter-spacing:.05em;}
+.lbTable td{color:#ddd;font-size:13px;padding:7px 8px;border-bottom:1px solid #1a1a2e;}
+.lbTable tr.gold td{color:#FFD700;font-weight:600;}
+.lbTable tr.silver td{color:#c0c0c0;font-weight:500;}
+.lbTable tr.bronze td{color:#cd7f32;font-weight:500;}
+.lbNew td{background:rgba(127,119,221,0.18)!important;}
+#nameEntryBox{position:absolute;inset:0;background:rgba(8,8,20,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+#nameEntryBox h2{color:#FFD700;font-size:22px;font-weight:600;}
+#nameEntryBox p{color:#aaa;font-size:13px;text-align:center;max-width:280px;line-height:1.5;}
+#nameInput{background:#141428;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:18px;padding:12px 16px;width:220px;text-align:center;outline:none;}
+#nameInput::placeholder{color:#444;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui">
+    <div id="topBar">
+      <span id="killLabel">💀 0</span>
+      <span id="waveInfo">Wave 1</span>
+      <span id="timeLabel">0:00</span>
+      <button id="pauseBtn">⏸</button>
+    </div>
+    <div id="waveLabel"></div>
+    <div id="xpBar"><div id="xpFill"></div></div>
+    <div id="joystickZone"><div id="joystickBase"></div><div id="joystickStick"></div></div>
+    <div id="hpArea">
+      <div id="regenIcon">♻ +HP in <span id="regenCountdown">5</span>s</div>
+      <div id="hpLabel">HP 100/100</div>
+      <div id="hpTrack"><div id="hpFill"></div></div>
+    </div>
+  </div>
+  <div id="overlay">
+    <h2>🟢 Slime Survivor</h2>
+    <p>Move with the joystick or WASD. Weapons orbit you. Collect ❤️ hearts to heal. Level up to unlock upgrades and skills!</p>
+    <button class="btn" id="startBtn">▶ Start Game</button>
+    <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn">🏆 Leaderboard</button>
+  </div>
+  <div id="nameEntryBox">
+    <h2>☠️ Game Over</h2>
+    <p id="nameEntryStats"></p>
+    <input id="nameInput" type="text" maxlength="16" placeholder="Enter your name…" autocomplete="off" spellcheck="false"/>
+    <button class="btn green" id="submitScoreBtn">✓ Save Score</button>
+    <button class="btn" style="background:#1a1a2e;border:1px solid #333;font-size:13px;" id="skipNameBtn">Skip</button>
+  </div>
+  <div id="leaderboardScreen">
+    <h2>🏆 Leaderboard</h2>
+    <table class="lbTable">
+      <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Wave</th><th>Level</th><th>Time</th></tr></thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+    <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbCloseBtn">← Back</button>
+    <button class="btn" style="background:#3a0a0a;border:1px solid #7a2020;font-size:13px;margin-top:4px;" id="clearLbBtn">🗑 Clear Scores</button>
+  </div>
+  <div id="pauseScreen">
+    <h2>⏸ Paused</h2>
+    <p>Take a breather, slime.</p>
+    <button class="btn" id="resumeBtn">▶ Resume</button>
+    <button class="btn" style="background:#2a1a1a;border:1.5px solid #7a3030;" id="quitBtn">✕ Quit to Menu</button>
+  </div>
+  <div id="upgradeScreen"></div>
+</div>
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+resize(); window.addEventListener('resize',resize);
+const W=()=>canvas.width, H=()=>canvas.height;
+function rnd(a,b){return a+Math.random()*(b-a);}
+function dist(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);}
+function norm(v){const m=Math.sqrt(v.x*v.x+v.y*v.y)||1;return{x:v.x/m,y:v.y/m};}
+function lerp(a,b,t){return a+(b-a)*t;}
+
+// ---- UPGRADE DEFINITIONS ----
+// Static upgrades (weapons, skills to unlock, stats, heals)
+const UPGRADES_STATIC=[
+  {id:'sword',    icon:'⚔️', name:'Add Sword',     desc:'Another sword joins your orbit',           type:'weapon',wtype:'sword'},
+  {id:'spear',    icon:'🗡️', name:'Add Spear',     desc:'A fast spear joins your orbit',            type:'weapon',wtype:'spear'},
+  {id:'fireball', icon:'🔥', name:'Fireball',      desc:'Homing fireball every 3s — weak at first', type:'skill', stype:'fireball'},
+  {id:'lightning',icon:'⚡', name:'Lightning',     desc:'Zaps 1 nearby enemy every 2s',             type:'skill', stype:'lightning'},
+  {id:'iceRing',  icon:'❄️', name:'Ice Ring',      desc:'8 weak shards outward every 3s',           type:'skill', stype:'iceRing'},
+  {id:'wind',     icon:'💨', name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',  type:'skill', stype:'wind'},
+  {id:'speed',    icon:'👟', name:'Move Faster',   desc:'Movement speed +20%',                      type:'stat',  stat:'moveSpeed',amt:0.20},
+  {id:'spin',     icon:'🌀', name:'Faster Spin',   desc:'Weapons spin 30% faster',                  type:'stat',  stat:'spinSpeed',amt:0.30},
+  {id:'hp',       icon:'❤️', name:'Max HP +40',    desc:'Gain 40 max HP and heal 40',               type:'stat',  stat:'hp',       amt:40},
+  {id:'dmg',      icon:'💥', name:'More Damage',   desc:'All damage +25%',                          type:'stat',  stat:'damage',   amt:0.25},
+  {id:'magnet',   icon:'🧲', name:'XP Magnet',     desc:'Collect XP orbs from farther away',        type:'stat',  stat:'magnet',   amt:1.6},
+  {id:'regen',    icon:'💚', name:'Regeneration',  desc:'Restore 4 HP every 5 seconds',             type:'heal',  htype:'regen'},
+  {id:'regenup',  icon:'🌿', name:'Regen Boost',   desc:'Regen +4 HP per tick (stacks)',             type:'heal',  htype:'regenBoost',amt:4},
+  {id:'healOrbs', icon:'✨', name:'Blessed Orbs',  desc:'XP orbs also restore 1 HP',                type:'heal',  htype:'healOrbs'},
+  {id:'lifesteal',icon:'🩸', name:'Life Steal',    desc:'10% of weapon damage heals you',           type:'heal',  htype:'lifesteal'},
+  {id:'vampirism',icon:'🧛', name:'Vampirism',     desc:'Killing enemies restores 5 HP',            type:'heal',  htype:'vampirism'},
+  {id:'heartrate',icon:'💓', name:'Heart Rate',    desc:'Hearts spawn 40% more often',              type:'heal',  htype:'heartRate'},
+];
+
+// Infinitely repeatable scaling upgrades — always available, stack indefinitely.
+// Each pick applies a fixed multiplier and increments a stack counter on the player.
+const SCALING_UPGRADES=[
+  {id:'sc_dmg',    icon:'⚔️🔥', skey:'dmg',    name:'Power Surge',      type:'scaling',
+   desc:(n)=>`All weapon & skill damage ×1.20 (stack ${n+1})`,           mult:1.20, stat:'damageMult'},
+  {id:'sc_cdmg',   icon:'⚡💥', skey:'cdmg',   name:'Skill Overcharge',  type:'scaling',
+   desc:(n)=>`All skill damage ×1.25, faster cooldowns (stack ${n+1})`,  mult:1.25, stat:'skillDmgMult'},
+  {id:'sc_hp',     icon:'❤️⬆️', skey:'hp',    name:'Iron Flesh',        type:'scaling',
+   desc:(n)=>`Max HP +80 and heal fully (stack ${n+1})`,                  flat:80,   stat:'hp'},
+  {id:'sc_speed',  icon:'💨⚡', skey:'speed',  name:'Adrenaline Rush',   type:'scaling',
+   desc:(n)=>`Move speed +15%, weapon spin +20% (stack ${n+1})`,         type2:'speedspin'},
+  {id:'sc_cd',     icon:'⏱️🔄', skey:'cd',    name:'Rapid Fire',        type:'scaling',
+   desc:(n)=>`All skill cooldowns −10% (stack ${n+1})`,                  type2:'cd'},
+];
+
+// Per-skill level-up cards. Levels 1-4 = base skill growth. Level 5 = EVOLUTION unlock.
+// Levels 6-9 = evolved form upgrades. Card shown = next level.
+// minWave: card won't appear in upgrade pool until this wave is reached.
+const SKILL_UPGRADES={
+  fireball:[
+    {name:'Fireball Lv 2',     icon:'🔥',  desc:'+25 dmg · bigger splash radius'},
+    {name:'Fireball Lv 3',     icon:'🔥',  desc:'+25 dmg · faster homing · larger bolt'},
+    {name:'Fireball Lv 4',     icon:'🔥',  desc:'Splits into 3 mini fireballs on impact'},
+    {name:'☄️ METEOR — Lv 5', icon:'☄️',  desc:'EVOLVES into Meteor! Massive crater splash, sets ground on fire'},
+    {name:'Meteor Lv 6',       icon:'☄️',  desc:'Meteor craters leave fire zones — enemies burn for 2s'},
+    {name:'Meteor Lv 7',       icon:'☄️',  desc:'+60 dmg · fire zone lasts longer · fires faster',         minWave:12},
+    {name:'Meteor Lv 8',       icon:'☄️',  desc:'Drops 2 meteors per volley',                               minWave:18},
+    {name:'Meteor Lv 9',       icon:'☄️',  desc:'Mega Meteor: screen-shaking impact, massive AOE, 5 craters',minWave:25},
+  ],
+  lightning:[
+    {name:'Lightning Lv 2',    icon:'⚡',  desc:'Chains to 2 more enemies · +20 dmg'},
+    {name:'Lightning Lv 3',    icon:'⚡',  desc:'Chains to 4 enemies · +20 dmg'},
+    {name:'Lightning Lv 4',    icon:'⚡',  desc:'Larger range · fires every 1.2s'},
+    {name:'⛈️ STORM — Lv 5',  icon:'⛈️',  desc:'EVOLVES into Storm! Calls a lightning storm overhead'},
+    {name:'Storm Lv 6',        icon:'⛈️',  desc:'Storm drops 3 bolts · each stuns briefly'},
+    {name:'Storm Lv 7',        icon:'⛈️',  desc:'+40 dmg per bolt · storm lasts longer',                   minWave:12},
+    {name:'Storm Lv 8',        icon:'⛈️',  desc:'Storm drops 5 bolts · chains between enemies',            minWave:18},
+    {name:'Storm Lv 9',        icon:'⛈️',  desc:'Supercell: continuous storm, 8 chained mega-bolts',       minWave:25},
+  ],
+  iceRing:[
+    {name:'Ice Ring Lv 2',     icon:'❄️',  desc:'+4 shards (12 total) · freeze instead of slow'},
+    {name:'Ice Ring Lv 3',     icon:'❄️',  desc:'+4 more shards (16) · longer freeze'},
+    {name:'Ice Ring Lv 4',     icon:'❄️',  desc:'Shards travel farther · +15 dmg each'},
+    {name:'🌨️ BLIZZARD — Lv 5',icon:'🌨️', desc:'EVOLVES into Blizzard! Continuous snowstorm around you'},
+    {name:'Blizzard Lv 6',     icon:'🌨️',  desc:'Blizzard radius grows · snow slows enemies in zone'},
+    {name:'Blizzard Lv 7',     icon:'🌨️',  desc:'+25 dmg · frozen enemies shatter dealing splash dmg',     minWave:12},
+    {name:'Blizzard Lv 8',     icon:'🌨️',  desc:'Blizzard fires in waves of 24 shards',                    minWave:18},
+    {name:'Blizzard Lv 9',     icon:'🌨️',  desc:'Absolute Zero: full freeze on all screen enemies, mega dmg',minWave:25},
+  ],
+  wind:[
+    {name:'Wind Burst Lv 2',   icon:'💨',  desc:'Deals 15 dmg on push · larger radius'},
+    {name:'Wind Burst Lv 3',   icon:'💨',  desc:'Double push force · fires every 2.5s'},
+    {name:'Wind Burst Lv 4',   icon:'💨',  desc:'Shreds armour: enemies take +20% dmg for 3s'},
+    {name:'🌪️ TORNADO — Lv 5',icon:'🌪️',  desc:'EVOLVES into Tornado! Spawns a persistent tornado'},
+    {name:'Tornado Lv 6',      icon:'🌪️',  desc:'Tornado lasts longer · pulls enemies inward'},
+    {name:'Tornado Lv 7',      icon:'🌪️',  desc:'+30 dmg · can now spawn 2 tornadoes',                     minWave:12},
+    {name:'Tornado Lv 8',      icon:'🌪️',  desc:'Tornadoes leave electric trails that zap enemies',         minWave:18},
+    {name:'Tornado Lv 9',      icon:'🌪️',  desc:'Superstorm: 5 giant tornadoes, electrified, screen-wide', minWave:25},
+  ],
+};
+
+let G=null, paused=false, lastTs=0;
+const joy={active:false,dx:0,dy:0,ox:0,oy:0};
+const MAX_JOY=36;
+
+function newGame(){
+  const p={
+    x:W()/2,y:H()/2,r:18,
+    hp:200,maxHp:200,
+    moveSpeed:2.0,
+    invTimer:0,wobble:0,eyeDir:0,
+    weapons:[{type:'sword',masterAngle:0,hitCD:{}}],
+    skills:[],
+    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0},
+    spinSpeed:1.0,damageMult:1.0,magnetRange:1.0,
+    skillDmgMult:1.0,  // separate multiplier for skill damage only
+    cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
+    scalingStacks:{dmg:0,cdmg:0,hp:0,speed:0,cd:0}, // track stacks per scaling upgrade
+    regenRate:0,regenTickTimer:0,lifesteal:false,vampirism:false,healOrbs:false,heartRateBoost:1,
+    xp:0,xpNext:12,level:1,
+  };
+  G={
+    p,
+    enemies:[],projs:[],orbs:[],hearts:[],pickups:[],particles:[],texts:[],
+    wave:1,waveTimer:0,waveSec:10,
+    spawnTimer:0,spawnRate:110,
+    heartSpawnTimer:0,heartSpawnRate:18,
+    kills:0,score:0,elapsed:0,
+    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0},
+    running:true,upgrading:false, shakeTimer:0, flashTimer:0,
+    passiveXpTimer:0,
+  };
+  paused=false;
+  document.getElementById('pauseScreen').style.display='none';
+  showWave(1);
+}
+
+function loop(ts){
+  const dt=Math.min((ts-lastTs)/16.667,4); lastTs=ts;
+  if(G&&G.running&&!G.upgrading&&!paused) update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  const{p,enemies,projs,orbs,hearts,pickups,particles,texts}=G;
+  G.elapsed+=dt/60;
+  if(p.invTimer>0) p.invTimer-=dt;
+  p.wobble+=dt*0.14;
+
+  // regen — ticks every 5 seconds, not continuous
+  if(p.regenRate>0){
+    p.regenTickTimer-=dt/60;
+    const cdEl=document.getElementById('regenCountdown');
+    if(cdEl) cdEl.textContent=Math.max(0,Math.ceil(p.regenTickTimer));
+    if(p.regenTickTimer<=0){
+      p.regenTickTimer=5;
+      if(p.hp<p.maxHp) healPlayer(p.regenRate,true);
+    }
+    document.getElementById('regenIcon').style.opacity=p.hp<p.maxHp?'1':'0';
+  } else { document.getElementById('regenIcon').style.opacity='0'; }
+
+  // passive XP — ticks every second, scales with wave so it stays meaningful
+  // early waves: tiny (just a floor)
+  // wave 50+: ~100 XP/sec — enough to level once every 30–60s even with no kills
+  G.passiveXpTimer+=dt/60;
+  if(G.passiveXpTimer>=1){
+    G.passiveXpTimer=0;
+    const w=G.wave;
+    // piecewise to match the HP scaling curve
+    const passiveXp = w<=10  ? Math.round(2+w*0.5)         // w1=2, w10=7
+                    : w<=30  ? Math.round(7+(w-10)*1.5)     // w10=7, w30=37
+                    : w<=60  ? Math.round(37+(w-30)*3)      // w30=37, w60=127
+                    : Math.round(127+(w-60)*8);             // w90=367, w100=447
+    addXp(passiveXp);
+    // small floating text so player knows it's ticking
+    if(G.p) G.texts.push({x:G.p.x,y:G.p.y-G.p.r-28,
+      txt:'+'+passiveXp+' XP',col:'#7F77DD',life:35});
+  }
+
+  // movement
+  const spd=p.moveSpeed*2.2*dt;
+  if(joy.dx||joy.dy){
+    p.x=Math.max(p.r,Math.min(W()-p.r,p.x+joy.dx*spd));
+    p.y=Math.max(p.r,Math.min(H()-p.r,p.y+joy.dy*spd));
+    p.eyeDir=Math.atan2(joy.dy,joy.dx);
+  }
+
+  // weapons — clock-hand style: each weapon stays at fixed angle offset, blade points outward like a clock hand
+  const ORBIT_R=44+p.weapons.length*5;
+  const SPIN_RATE=0.025*p.spinSpeed*dt;
+  p.weapons[0].masterAngle+=SPIN_RATE;
+  const master=p.weapons[0].masterAngle;
+  const wN=p.weapons.length;
+  p.weapons.forEach((w,i)=>{
+    w.orbitAngle=master+(Math.PI*2/wN)*i;
+    w.cx=p.x+Math.cos(w.orbitAngle)*ORBIT_R;
+    w.cy=p.y+Math.sin(w.orbitAngle)*ORBIT_R;
+    w.r=w.type==='spear'?8:10;
+  });
+
+    p.weapons.forEach(w=>{
+      if(!w.hitCD) w.hitCD={};
+      Object.keys(w.hitCD).forEach(k=>{if(w.hitCD[k]>0)w.hitCD[k]-=dt;});
+      enemies.forEach(e=>{
+        if((w.hitCD[e.id]||0)>0) return;
+        if(dist({x:w.cx,y:w.cy},e)<w.r+e.r){
+          const dmg=Math.round((w.type==='spear'?35:28)*p.damageMult); // was 18/14
+          hitEnemy(e,dmg);
+          w.hitCD[e.id]=12; // slightly faster hit rate too
+          if(p.lifesteal) healPlayer(Math.max(1,Math.round(dmg*0.1)),false);
+        }
+      });
+    });
+
+  // skill cooldowns
+  Object.keys(G.skillCD).forEach(k=>{if(G.skillCD[k]>0)G.skillCD[k]-=dt/60;});
+
+  // skill CDs scale with level: base / (1 + level*0.15)
+  function getCD(sk){
+    const lv=p.skillLevels[sk]||0;
+    const evolved=lv>=5;
+    const base={fireball:3,lightning:2,iceRing:3,wind:4}[sk];
+    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0}[sk];
+    const b=evolved?evolvedBase:base;
+    const lvFactor=Math.min(lv,9);
+    const raw=Math.max(0.3, b/(1+lvFactor*0.18));
+    return raw*(p.cdReduction||1); // Rapid Fire stacking reduces this
+  }
+  p.skills.forEach(sk=>{
+    if(G.skillCD[sk]<=0){
+      G.skillCD[sk]=getCD(sk);
+      if(sk==='fireball') fireFireball();
+      if(sk==='lightning') fireLightning();
+      if(sk==='iceRing') fireIceRing();
+      if(sk==='wind') fireWind();
+    }
+  });
+
+  // projectiles (fireball, ice, meteor, blizzard, stormBolt)
+  const newProjs=[];
+  G.projs=projs.filter(pr=>{
+    if(pr.type==='wind'||pr.type==='tornado') return true;
+
+    // ---- METEOR — falls from top ----
+    if(pr.type==='meteor'){
+      pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
+      if(pr.life<=0) return false;
+      // impact when reaching target Y
+      if(pr.y>=pr.ty){
+        const splashR=pr.splashR;
+        enemies.forEach(ne=>{
+          const d2=dist(ne,{x:pr.tx,y:pr.ty});
+          if(d2<splashR){
+            const fall=1-d2/splashR;
+            hitEnemy(ne,Math.round(pr.dmg*Math.max(0.3,fall)));
+          }
+        });
+        spawnSplash(pr.tx,pr.ty,'#ff6600',splashR);
+        spawnBurst(pr.tx,pr.ty,'#FF4500',28);
+        // always leave a fire zone for evolved meteors
+        if(pr.fireZone){
+          G.projs.push({type:'fireZone',cx:pr.tx,cy:pr.ty,
+            radius:pr.fireZoneR||55,
+            life:pr.fireZoneLife||300,
+            dmg:Math.round(80*G.p.damageMult),  // 80 per tick vs old 20
+            tickTimer:0,tickRate:10});           // 6 ticks/sec vs old 3
+        }
+        G.shakeTimer=pr.mega?8:3; // subtle shake only
+        return false;
+      }
+      return true;
+    }
+
+    // ---- BLIZZARD shards ----
+    if(pr.type==='blizzard'){
+      pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
+      if(pr.life<=0) return false;
+      for(let e of enemies){
+        if(dist(pr,e)<pr.r+e.r){
+          const wasFrozen=e.freezeTimer>0;
+          e.freezeTimer=pr.freezeDur;
+          hitEnemy(e,Math.round(pr.dmg));
+          if(pr.splashOnFreeze&&!wasFrozen){
+            enemies.forEach(ne=>{
+              if(ne!==e&&dist(ne,e)<60) hitEnemy(ne,Math.round(pr.dmg*0.5));
+            });
+            spawnBurst(e.x,e.y,'#85B7EB',10);
+          }
+          return false;
+        }
+      }
+      return true;
+    }
+
+    pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
+    if(pr.life<=0) return false;
+    if(pr.type==='fireball'&&pr.target&&pr.target.hp>0){
+      const d=norm({x:pr.target.x-pr.x,y:pr.target.y-pr.y});
+      pr.vx=lerp(pr.vx,d.x*5.5,0.1); pr.vy=lerp(pr.vy,d.y*5.5,0.1);
+    }
+    for(let e of enemies){
+      if(dist(pr,e)<pr.r+e.r){
+        if(pr.type==='fireball'){
+          const splashR=pr.splashR||40;
+          enemies.forEach(ne=>{
+            if(dist(ne,pr)<splashR){
+              const fall=1-dist(ne,pr)/splashR;
+              hitEnemy(ne,Math.round(pr.dmg*fall));
+            }
+          });
+          spawnSplash(pr.x,pr.y,'#EF9F27',splashR);
+          if(pr.splitOnImpact){
+            for(let s=0;s<3;s++){
+              const sa=(Math.PI*2/3)*s+rnd(-0.3,0.3);
+              newProjs.push({x:pr.x,y:pr.y,vx:Math.cos(sa)*4,vy:Math.sin(sa)*4,
+                r:pr.r*0.6,type:'fireball',dmg:Math.round(pr.dmg*0.5),
+                splashR:pr.splashR*0.5,life:40,target:null,splitOnImpact:false});
+            }
+          }
+        }
+        if(pr.type==='ice'){
+          const wasFrozen=e.freezeTimer>0;
+          e.freezeTimer=pr.freezeDur||0;
+          e.slowTimer=pr.slowDur||0;
+          hitEnemy(e,Math.round(pr.dmg));
+          if(pr.splashOnFreeze&&!wasFrozen&&e.freezeTimer>0){
+            enemies.forEach(ne=>{
+              if(ne!==e&&dist(ne,e)<50) hitEnemy(ne,Math.round(pr.dmg*0.6));
+            });
+            spawnBurst(e.x,e.y,'#85B7EB',10);
+          }
+        }
+        return false;
+      }
+    }
+    return true;
+  });
+  newProjs.forEach(p=>G.projs.push(p));
+
+  // wind pulses — AOE push ring
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='wind') return true;
+    pr.life-=dt; pr.radius+=pr.growRate*dt;
+    if(pr.life<=0) return false;
+    enemies.forEach(e=>{
+      if(dist(e,{x:pr.cx,y:pr.cy})<pr.radius+e.r){
+        const d=norm({x:e.x-pr.cx,y:e.y-pr.cy});
+        e.pushVx=(e.pushVx||0)+d.x*pr.force;
+        e.pushVy=(e.pushVy||0)+d.y*pr.force;
+        if(pr.dealsDmg) hitEnemy(e,Math.round(pr.dmg));
+        if(pr.shredArmour) e.shredTimer=180; // ~3s of 20% extra dmg
+      }
+    });
+    return true;
+  });
+
+  // ice shockwaves (Absolute Zero rings)
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='iceShockwave') return true;
+    if((pr.delay||0)>0){ pr.delay-=dt; return true; }
+    pr.radius+=pr.growRate*dt; pr.life-=dt;
+    if(pr.life<=0) return false;
+    // freeze + damage enemies the ring passes through
+    enemies.forEach(e=>{
+      const d2=dist(e,{x:pr.cx,y:pr.cy});
+      if(Math.abs(d2-pr.radius)<e.r+10 && !e._azHit){
+        e.freezeTimer=Math.max(e.freezeTimer,600);
+        hitEnemy(e,Math.round(50*G.p.damageMult));
+        e._azHit=true;
+        setTimeout(()=>{ if(e) e._azHit=false; },500);
+      }
+    });
+    return true;
+  });
+
+  // blizzard aura — persistent frost zone around player
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='blizzardAura') return true;
+    pr.spinAngle+=dt*0.04;
+    const blizzLv=G.p.skillLevels.iceRing||0;
+    if(blizzLv<5){ return false; }
+    // Absolute Zero aura: shrink back toward normal size over azLife
+    if(pr.absoluteZero){
+      pr.azLife-=dt;
+      const normalR=110+(blizzLv-5)*28;
+      pr.r=lerp(pr.r, normalR, 0.004*dt);
+      if(pr.azLife<=0){ pr.r=normalR; pr.absoluteZero=false; }
+    }
+    // continuous: every frame, slow/freeze all enemies inside the zone
+    enemies.forEach(e=>{
+      if(dist(e,G.p)<pr.r+e.r){
+        // slow them by resetting their freeze/slow timer continuously
+        e.slowTimer=Math.max(e.slowTimer,8); // keep refreshed so they stay slowed
+        e.freezeTimer=Math.max(e.freezeTimer, pr.freezeDur||0);
+        // low per-frame damage (dmg is per-second, convert to per-frame)
+        e.hp-=pr.dmgPerFrame;
+        if(e.hp<=0) killEnemy(e);
+        // ice particle spray
+        if(Math.random()<0.04){
+          const d=norm({x:e.x-G.p.x,y:e.y-G.p.y});
+          G.particles.push({x:e.x,y:e.y,
+            vx:rnd(-1.5,1.5),vy:rnd(-2,-0.5),
+            r:rnd(2,4),col:'#b0e0ff',life:rnd(12,22)});
+        }
+      }
+    });
+    return true;
+  });
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='fireZone') return true;
+    pr.life-=dt; pr.tickTimer-=dt;
+    if(pr.life<=0) return false;
+        if(pr.tickTimer<=0){
+          pr.tickTimer=pr.tickRate;
+          enemies.forEach(e=>{
+            if(dist(e,{x:pr.cx,y:pr.cy})<pr.radius+e.r) hitEnemy(e,Math.round(pr.dmg));
+          });
+        }
+    return true;
+  });
+
+  // storm cloud — follows player, continuously rains lightning bolts
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='stormCloud') return true;
+    pr.life-=dt; pr.boltTimer-=dt;
+    pr.cx=p.x; pr.cy=p.y;
+    if(pr.life<=0) return false;
+    if(pr.boltTimer<=0 && enemies.length>0){
+      pr.boltTimer=pr.boltRate;
+      // Only target enemies actually visible on screen
+      const onScreen=enemies.filter(e=>
+        e.x>-e.r && e.x<W()+e.r && e.y>-e.r && e.y<H()+e.r &&
+        dist(e,{x:pr.cx,y:pr.cy})<pr.radius
+      );
+      if(onScreen.length>0){
+        const targets=[...onScreen].sort(()=>Math.random()-0.5).slice(0,pr.boltCount);
+        targets.forEach((t,i)=>{
+          hitEnemy(t, Math.round(pr.dmg));
+          if(pr.stuns) t.slowTimer=50;
+          G.projs.push({type:'boltFlash', x:t.x, y:t.y, life:14, maxLife:14,
+            col:pr.mega?'#ffffff':'#FFE94D',
+            glow:pr.mega?'rgba(220,180,255,0.7)':'rgba(255,220,80,0.6)'});
+          spawnBurst(t.x, t.y, pr.mega?'#ffffff':'#FFD700', 10);
+          if(pr.chains && i<targets.length-1){
+            const next=targets[i+1];
+            G.projs.push({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y,
+              life:10, maxLife:10, col:pr.mega?'#e0d0ff':'#AAD4FF'});
+          }
+        });
+      }
+    }
+    return true;
+  });
+
+  // bolt flash (impact glow at strike location)
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='boltFlash') return true;
+    pr.life-=dt;
+    return pr.life>0;
+  });
+
+  // bolt chain (arc between chained targets)
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='boltChain') return true;
+    pr.life-=dt;
+    return pr.life>0;
+  });
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='tornado') return true;
+    pr.life-=dt; pr.tickTimer-=dt;
+    if(pr.spinAngle!==undefined) pr.spinAngle+=dt*0.08;
+    if(pr.life<=0) return false;
+    if(pr.tickTimer<=0){
+      pr.tickTimer=pr.tickRate;
+      enemies.forEach(e=>{
+        const d2=dist(e,{x:pr.cx,y:pr.cy});
+        if(d2<pr.radius+e.r){
+          hitEnemy(e,Math.round(pr.dmg));
+          const d=norm({x:e.x-pr.cx,y:e.y-pr.cy});
+          const pullStr=pr.pushForce||4;
+          e.pushVx=(e.pushVx||0)-d.x*pullStr+(-d.y)*2;
+          e.pushVy=(e.pushVy||0)-d.y*pullStr+(d.x)*2;
+          if(pr.shredArmour) e.shredTimer=Math.max(e.shredTimer||0, 120);
+          if(pr.electric&&Math.random()<0.35){
+            hitEnemy(e,Math.round(pr.dmg*1.2));
+            G.particles.push({x:e.x,y:e.y,type:'bolt',life:14,col:'#AAD4FF',vx:0,vy:0,r:0,
+              fromX:pr.cx,fromY:pr.cy});
+          }
+        }
+      });
+    }
+    return true;
+  });
+
+  // enemies
+  enemies.forEach(e=>{
+    if(e.hitFlash>0) e.hitFlash-=dt;
+    if(e.freezeTimer>0) e.freezeTimer-=dt;
+    if(e.slowTimer>0) e.slowTimer-=dt;
+    if(e.shredTimer>0) e.shredTimer-=dt;
+    e.wobble+=dt*0.11;
+    // apply push velocity
+    if(e.pushVx||e.pushVy){
+      e.x+=e.pushVx*dt; e.y+=e.pushVy*dt;
+      e.pushVx=(e.pushVx||0)*0.82; e.pushVy=(e.pushVy||0)*0.82;
+      if(Math.abs(e.pushVx)<0.01) e.pushVx=0;
+      if(Math.abs(e.pushVy)<0.01) e.pushVy=0;
+    }
+    const frozen=e.freezeTimer>0;
+    const slowed=e.slowTimer>0;
+    if(!frozen){
+      const sm=slowed?0.35:1;
+      const d=norm({x:p.x-e.x,y:p.y-e.y});
+      e.x+=d.x*e.spd*sm*dt; e.y+=d.y*e.spd*sm*dt;
+    }
+    if(p.invTimer<=0&&dist(e,p)<e.r+p.r-4){
+      // flat hit: full enemy dmg, no dt scaling. invTimer in frames at 60fps ~ 0.4s window
+      p.hp-=e.dmg; p.invTimer=40;
+      spawnBurst(p.x,p.y,'#fff',6);
+      if(p.hp<=0){p.hp=0;endGame();}
+    }
+  });
+
+  // xp orbs
+  const pickRange=32*p.magnetRange;
+  G.orbs=orbs.filter(o=>{
+    const d=dist(o,p);
+    if(d<pickRange){o.x=lerp(o.x,p.x,0.18);o.y=lerp(o.y,p.y,0.18);}
+    if(d<p.r+o.r+2){addXp(o.val);if(p.healOrbs)healPlayer(1,false);return false;}
+    return true;
+  });
+
+  // hearts
+  G.heartSpawnTimer+=dt/60;
+  if(G.heartSpawnTimer>=G.heartSpawnRate*p.heartRateBoost){
+    G.heartSpawnTimer=0; spawnHeart();
+  }
+  G.hearts=hearts.filter(h=>{
+    h.wobble+=dt*0.08; h.life-=dt/60;
+    if(h.life<=0) return false;
+    if(dist(h,p)<p.r+h.r){
+      healPlayer(h.big?60:30,true);
+      spawnBurst(h.x,h.y,'#ff6b8a',14);
+      return false;
+    }
+    return true;
+  });
+
+  // floating pickups (animated pickup text)
+  G.pickups=pickups.filter(pk=>{pk.life-=dt;pk.y-=0.8*dt;return pk.life>0;});
+
+  G.particles=particles.filter(pt=>{
+    pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.vx*=0.88;pt.vy*=0.88;pt.life-=dt;
+    return pt.life>0;
+  });
+  G.texts=texts.filter(t=>{t.y-=0.6*dt;t.life-=dt;return t.life>0;});
+
+  // spawning — gentle ramp, cap on screen enemies so early waves don't overwhelm
+  G.spawnTimer+=dt;
+  const MAX_ENEMIES=15+G.wave*3; // wave 1=18, wave 6=33, wave 20=75
+  const spawnInterval=G.spawnRate*(1/(1+G.wave*0.04)); // gentler acceleration
+  if(G.spawnTimer>=spawnInterval && enemies.length<MAX_ENEMIES){
+    G.spawnTimer=0;
+    const n=Math.min(1+Math.floor(G.wave/4), 8); // batch: wave/4 not wave/3
+    for(let i=0;i<n;i++) G.enemies.push(makeEnemy());
+  }
+
+  // wave
+  G.waveTimer+=dt/60;
+  if(G.waveTimer>=G.waveSec){
+    G.waveTimer=0;G.wave++;
+    G.spawnRate=Math.max(15,110-G.wave*5);
+    showWave(G.wave);
+  }
+
+  if(G.shakeTimer>0) G.shakeTimer-=dt;
+  if(G.flashTimer>0) G.flashTimer-=dt;
+  updateHUD();
+}
+
+// ---- SKILLS ----
+function fireFireball(){
+  const p=G.p;
+  if(!G.enemies.length) return;
+  const lv=p.skillLevels.fireball||0;
+  const evolved=lv>=5; // meteor tier
+
+  if(evolved){
+    // ---- METEOR ----
+    const elv=lv-5; // 0-4
+    const mega=lv>=9;
+    const count=mega?5:lv>=8?3:lv>=7?2:1;   // lv9: 5 meteors per volley
+    for(let m=0;m<count;m++){
+    // target on-screen enemies only — no off-screen sniping
+      const t=G.enemies.filter(e=>e.x>0&&e.x<W()&&e.y>0&&e.y<H());
+      if(!t.length) return; // no on-screen enemies, skip
+      const target=t[Math.floor(Math.random()*t.length)];
+      const dmg=Math.round((600+elv*200)*p.damageMult*(p.skillDmgMult||1));
+      const tx=target.x+rnd(-25,25), ty=target.y+rnd(-25,25);
+      const splashR=mega?260:130+elv*30;
+      const r=mega?44:24+elv*5;
+      const vy=12+elv*2;
+      G.projs.push({
+        x:tx+rnd(-100,100), y:-80,
+        vx:rnd(-0.3,0.3), vy,
+        r, type:'meteor', dmg, splashR, life:300,
+        tx, ty,
+        fireZone:true,
+        fireZoneR: mega?120:55+elv*15,
+        fireZoneLife: mega?600:300+elv*60,
+        mega, lv
+      });
+    }
+  } else {
+    // ---- FIREBALL ----
+    const t=G.enemies.reduce((a,b)=>dist(a,p)<dist(b,p)?a:b);
+    const d=norm({x:t.x-p.x,y:t.y-p.y});
+    const dmg=Math.round((20+lv*25)*p.damageMult);
+    const splashR=28+lv*15;
+    const spd=4.8+lv*0.4;
+    const r=7+lv*1.5;
+    G.projs.push({x:p.x,y:p.y,vx:d.x*spd,vy:d.y*spd,r,
+      type:'fireball',dmg,splashR,life:150+lv*20,target:t,
+      splitOnImpact:lv>=3});
+  }
+}
+
+function fireLightning(){
+  const p=G.p;
+  const lv=p.skillLevels.lightning||0;
+  const evolved=lv>=5; // storm tier
+
+  if(evolved){
+    // ---- STORM ----
+    const elv=lv-5; // 0-4
+    const mega=lv>=9; // Supercell
+
+    const stormDur=mega?600:280+elv*70;         // longer storm
+    const boltRate=mega?2:6-elv*0.8;            // lv5=6fr, lv9=2fr between bolts
+    const boltCount=mega?8:3+elv;               // lv5=3, lv6=4 ... lv9=8
+    const dmg=Math.round((250+elv*150)*p.damageMult*(p.skillDmgMult||1));
+    const stuns=lv>=6;
+    const chains=lv>=8;
+    const radius=mega?W()*1.1:250+elv*70;       // lv9 covers entire screen+
+
+    // Immediately fire a first strike so the effect is instant
+    const firstTargets=[...G.enemies]
+      .filter(e=>dist(e,p)<radius)
+      .sort(()=>Math.random()-0.5)
+      .slice(0,boltCount);
+    firstTargets.forEach((t,i)=>{
+      hitEnemy(t, Math.round(dmg));
+      if(stuns) t.slowTimer=50;
+      G.projs.push({type:'boltFlash', x:t.x, y:t.y, life:12, maxLife:12,
+        col:mega?'#ffffff':'#FFE94D', glow:mega?'rgba(200,180,255,0.6)':'rgba(255,220,80,0.5)'});
+      if(chains && i<firstTargets.length-1){
+        const next=firstTargets[i+1];
+        G.projs.push({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y, life:10, maxLife:10});
+      }
+    });
+
+    G.projs.push({
+      type:'stormCloud',
+      cx:p.x, cy:p.y,
+      life:stormDur,
+      boltRate, boltTimer:boltRate, // offset so second strike doesn't immediately follow first
+      boltCount, dmg, stuns, chains,
+      elv, mega, radius
+    });
+
+  } else {
+    // ---- LIGHTNING ----
+    const range=200+lv*60;
+    const near=G.enemies.filter(e=>dist(e,p)<range);
+    if(!near.length) return;
+    const chains=Math.min(1+lv*2, near.length);
+    const dmg=Math.round((25+lv*20)*p.damageMult);
+    near.sort((a,b)=>dist(a,p)-dist(b,p));
+    const targets=near.slice(0,chains);
+    targets.forEach((t,i)=>{
+      hitEnemy(t,dmg);
+      if(lv>=4) t.slowTimer=60;
+      G.particles.push({x:t.x,y:t.y,type:'bolt',life:22,col:'#FFD700',vx:0,vy:0,r:0,
+        fromX:i===0?p.x:targets[i-1].x, fromY:i===0?p.y:targets[i-1].y});
+    });
+  }
+}
+
+function fireIceRing(){
+  const p=G.p;
+  const lv=p.skillLevels.iceRing||0;
+  const evolved=lv>=5; // blizzard tier
+
+  if(evolved){
+    // ---- BLIZZARD ----
+    const elv=lv-5; // 0-4
+    const mega=lv>=9;
+
+    if(mega){
+      // ---- ABSOLUTE ZERO — true screen wipe ----
+      const azDmg=Math.round(800*p.damageMult*(p.skillDmgMult||1));
+      const snapshot=[...G.enemies];
+      snapshot.forEach(e=>{
+        if(e.hp>0){
+          e.freezeTimer=720; // ~12 seconds frozen
+          hitEnemy(e,azDmg);
+        }
+      });
+
+      // Five expanding shockwave rings
+      for(let ring=0;ring<5;ring++){
+        G.projs.push({
+          type:'iceShockwave',
+          cx:p.x, cy:p.y,
+          radius:0,
+          maxLife:55+ring*14,
+          growRate:(Math.max(W(),H())*1.5)/(55+ring*14),
+          life:55+ring*14,
+          delay:ring*10,
+          col:`rgba(${160-ring*25},${220+ring*14},255,1)`
+        });
+      }
+
+      G.flashTimer=35;
+      G.shakeTimer=45;
+      spawnBurst(p.x,p.y,'#a0d8ef',80);
+      spawnBurst(p.x,p.y,'#ffffff',40);
+
+      // Giant blizzard aura — huge radius, high damage, lasts 15 seconds
+      G.projs=G.projs.filter(pr=>pr.type!=='blizzardAura');
+      G.projs.push({
+        type:'blizzardAura',
+        r:Math.max(W(),H())*0.75,
+        dmgPerFrame:120/60,  // 120 dmg/sec — kills fast
+        freezeDur:999,
+        spinAngle:0,
+        absoluteZero:true,
+        azLife:900
+      });
+      return;
+    }
+
+    // 1) Burst of blizzard shards outward
+    const waveShards=20+elv*5;
+    const dmg=Math.round((150+elv*80)*p.damageMult*(p.skillDmgMult||1));
+    const freezeDur=180+elv*50;
+    const speed=5+elv*0.6;
+    const splashOnFreeze=lv>=7;
+    for(let i=0;i<waveShards;i++){
+      const a=(Math.PI*2/waveShards)*i+rnd(-0.08,0.08);
+      G.projs.push({x:p.x,y:p.y,
+        vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
+        r:10+elv*2, type:'blizzard', dmg, freezeDur,
+        life:100+elv*20, splashOnFreeze});
+    }
+
+    // 2) Persistent blizzard aura — much higher damage
+    G.projs=G.projs.filter(pr=>pr.type!=='blizzardAura');
+    const auraR=130+elv*35;
+    const dmgPerSec=(60+elv*30)*(p.skillDmgMult||1);
+    G.projs.push({
+      type:'blizzardAura',
+      r:auraR,
+      dmgPerFrame:dmgPerSec/60,
+      freezeDur:lv>=6?999:0,
+      spinAngle:0
+    });
+
+  } else {
+    // ---- ICE RING ----
+    const shards=8+lv*4;
+    const dmg=Math.round((10+lv*15)*p.damageMult);
+    const freezeDur=lv>=1?(80+lv*30):0;
+    const slowDur=lv>=1?0:80;
+    const speed=3.8+lv*0.5;
+    const projR=5+lv*1.5;
+    const life=50+lv*15;
+    const splashOnFreeze=lv>=4;
+    for(let i=0;i<shards;i++){
+      const a=(Math.PI*2/shards)*i;
+      G.projs.push({x:p.x,y:p.y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
+        r:projR,type:'ice',dmg,freezeDur,slowDur,life,splashOnFreeze});
+    }
+  }
+}
+
+function fireWind(){
+  const p=G.p;
+  const lv=p.skillLevels.wind||0;
+  const evolved=lv>=5; // tornado tier
+
+  if(evolved){
+    // ---- TORNADO ----
+    const mega=lv>=9;
+    const count=mega?5:lv>=7?3:lv>=6?2:1;
+    const tornadoR=mega?140:70+(lv-5)*18;
+    const life=mega?700:320+(lv-5)*60;
+    const dmg=Math.round((80+(lv-5)*80)*p.damageMult*(p.skillDmgMult||1)); // lv5=80, lv9=400 per tick
+    const electric=lv>=8;
+    const pushForce=mega?12:6+(lv-5)*1.5;
+
+    // Find enemy clusters to place tornadoes at — pick random enemies as anchor points
+    const anchors=[];
+    if(G.enemies.length>0){
+      const shuffled=[...G.enemies].sort(()=>Math.random()-0.5);
+      for(let i=0;i<count;i++){
+        const anchor=shuffled[i%shuffled.length];
+        // place slightly past the enemy, away from player
+        const d=norm({x:anchor.x-p.x,y:anchor.y-p.y});
+        anchors.push({
+          cx: anchor.x+d.x*30+rnd(-20,20),
+          cy: anchor.y+d.y*30+rnd(-20,20)
+        });
+      }
+    } else {
+      // fallback: place in ring around player if no enemies yet
+      for(let i=0;i<count;i++){
+        const a=(Math.PI*2/count)*i;
+        anchors.push({cx:p.x+Math.cos(a)*150, cy:p.y+Math.sin(a)*150});
+      }
+    }
+
+    anchors.forEach(anchor=>{
+      G.projs.push({type:'tornado',
+        cx:anchor.cx, cy:anchor.cy,
+        radius:tornadoR, life, dmg,
+        tickTimer:0, tickRate:mega?6:10,   // faster tick = more DPS
+        electric, pushForce,
+        shredArmour:lv>=6,                 // lv6+ tornado shreds armour
+        spinAngle:rnd(0,Math.PI*2)});
+    });
+
+    // Also fire an outward wind burst first to push enemies INTO the tornadoes
+    const burstR=100+lv*20;
+    G.projs.push({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:burstR/15,
+      maxR:burstR,life:15,force:6,dealsDmg:false,dmg:0,shredArmour:false});
+    spawnWindParticles(p.x,p.y,burstR);
+
+  } else {
+    // ---- WIND BURST ----
+    const force=4+lv*3;
+    const radius=80+lv*30;
+    const dealsDmg=lv>=1;
+    const dmg=dealsDmg?Math.round(15*lv*p.damageMult):0;
+    const shredArmour=lv>=3;
+    G.projs.push({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:radius/18,
+      maxR:radius,life:18,force,dealsDmg,dmg,shredArmour});
+    spawnWindParticles(p.x,p.y,radius);
+    if(lv>=4){
+      // wind lv4 mini-tornado spawns ahead of nearest enemy, not on player
+      let cx=p.x, cy=p.y;
+      if(G.enemies.length>0){
+        const nearest=G.enemies.reduce((a,b)=>dist(a,p)<dist(b,p)?a:b);
+        const d=norm({x:nearest.x-p.x,y:nearest.y-p.y});
+        cx=nearest.x+d.x*20; cy=nearest.y+d.y*20;
+      }
+      G.projs.push({type:'tornado',cx,cy,radius:40,life:240,
+        dmg:Math.round(10*p.damageMult),tickTimer:0,tickRate:18,
+        electric:false,pushForce:4,spinAngle:0});
+    }
+  }
+}
+
+function spawnWindParticles(x,y,r){
+  for(let i=0;i<20;i++){
+    const a=rnd(0,Math.PI*2), d=rnd(0.3,1);
+    G.particles.push({x,y,vx:Math.cos(a)*d*8,vy:Math.sin(a)*d*8,
+      r:rnd(3,7),col:'rgba(180,230,255,0.7)',life:rnd(25,45),type:'wind'});
+  }
+}
+
+function spawnSplash(x,y,col,r){
+  // ring of particles at splash radius
+  spawnBurst(x,y,col,16);
+  for(let i=0;i<12;i++){
+    const a=(Math.PI*2/12)*i;
+    G.particles.push({x:x+Math.cos(a)*r*0.7,y:y+Math.sin(a)*r*0.7,
+      vx:Math.cos(a)*1.5,vy:Math.sin(a)*1.5,r:rnd(2,5),col,life:rnd(20,35)});
+  }
+}
+
+// ---- ENTITY LOGIC ----
+let _eid=0;
+function makeEnemy(){
+  const side=Math.floor(Math.random()*4);
+  const pad=40; let x,y;
+  if(side===0){x=rnd(0,W());y=-pad;}
+  else if(side===1){x=W()+pad;y=rnd(0,H());}
+  else if(side===2){x=rnd(0,W());y=H()+pad;}
+  else{x=-pad;y=rnd(0,H());}
+
+  const r=Math.random(), w=G.wave;
+  let type='slime';
+  if(w>=3  && r>0.65) type='bat';
+  if(w>=5  && r>0.78) type='skeleton';
+  if(w>=7  && r>0.86) type='ghost';
+  if(w>=10 && Math.random()<0.05) type='boss';
+  if(w>=15 && Math.random()<0.04) type='eliteBoss';   // new: armoured tank
+  if(w>=22 && Math.random()<0.025) type='megaBoss';   // new: giant destroyer
+
+  const cfg={
+    slime:     {r:14, hp:120,  spd:0.9, col:'#4db870',  xp:5,  dmg:12},
+    bat:       {r:11, hp:90,   spd:1.7, col:'#9b59b6',  xp:4,  dmg:10},
+    skeleton:  {r:15, hp:220,  spd:1.0, col:'#d5d5c0',  xp:8,  dmg:18},
+    ghost:     {r:13, hp:170,  spd:1.2, col:'#aac0ff',  xp:7,  dmg:15},
+    boss:      {r:30, hp:1800, spd:0.6, col:'#D85A30',  xp:60, dmg:30},
+    eliteBoss: {r:42, hp:5000, spd:0.5, col:'#8B0000',  xp:150,dmg:40},
+    megaBoss:  {r:58, hp:14000,spd:0.4, col:'#1a0030',  xp:400,dmg:55},
+  }[type];
+
+  // HP scaling: piecewise linear — tough at high waves but never astronomically broken
+  // wave 1-10:  linear gentle  (x1.0 → x2.0)
+  // wave 11-30: linear medium  (x2.0 → x8.0)
+  // wave 31-60: linear steeper (x8.0 → x53)
+  // wave 61+:   linear hard    (+6 per wave, so w90=x233, w100=x293)
+  const sc = w<=10 ? 1+w*0.1
+           : w<=30 ? 2.0+(w-10)*0.3
+           : w<=60 ? 8.0+(w-30)*1.5
+           : 53+(w-60)*6;
+  // XP also scales with wave: +8% per wave so late waves are very rewarding
+  const xpScale=1+w*0.08;
+
+  return{id:++_eid, type, x, y,
+    r:cfg.r, hp:cfg.hp*sc, maxHp:cfg.hp*sc,
+    spd:cfg.spd*(1+w*0.022), col:cfg.col,
+    xp:Math.round(cfg.xp*xpScale),
+    dmg:Math.round(cfg.dmg*(1+w*0.06)),
+    wobble:rnd(0,Math.PI*2),
+    hitFlash:0, freezeTimer:0, slowTimer:0, pushVx:0, pushVy:0,
+    shredTimer:0};
+}
+
+function hitEnemy(e,dmg){
+  if(!e||e.hp<=0) return;
+  if(e.shredTimer>0) dmg=Math.round(dmg*1.2); // wind shred bonus
+  e.hp-=dmg; e.hitFlash=10;
+  G.texts.push({x:e.x,y:e.y-e.r,txt:'-'+dmg,col:'#fff',life:40});
+  spawnBurst(e.x,e.y,e.col,4);
+  if(e.hp<=0) killEnemy(e);
+}
+
+// XP orb tiers: {size, colour, value, label}
+const ORB_TIERS=[
+  {r:4,  col:'#9b87d4', val:1,  tier:'tiny'},   // tiny — scattered fragments
+  {r:6,  col:'#7F77DD', val:3,  tier:'small'},   // small — common
+  {r:8,  col:'#5b9bd5', val:6,  tier:'medium'},  // medium — blue
+  {r:10, col:'#26c6da', val:12, tier:'large'},   // large — cyan
+  {r:13, col:'#FFD700', val:25, tier:'gem'},     // gem — gold, rare
+];
+
+function pickOrbTier(enemyType){
+  const t={
+    slime:     [{t:1,n:2},{t:2,n:1}],                    // small+medium
+    bat:       [{t:1,n:3}],                               // 3 small
+    skeleton:  [{t:2,n:2},{t:3,n:1}],                    // medium+large
+    ghost:     [{t:2,n:2},{t:3,n:2}],                    // 2 medium+2 large
+    boss:      [{t:3,n:3},{t:4,n:3}],                    // large+gem
+    eliteBoss: [{t:3,n:4},{t:4,n:5}],                    // more large+gem
+    megaBoss:  [{t:3,n:6},{t:4,n:10}],                   // massive gem dump
+  }[enemyType]||[{t:2,n:2}];
+  return t;
+}
+
+function killEnemy(e){
+  const idx=G.enemies.indexOf(e);
+  if(idx===-1) return;
+  G.enemies.splice(idx,1);
+  const scores={boss:500,eliteBoss:1500,megaBoss:5000};
+  G.kills++; G.score+=(scores[e.type]||50);
+  spawnBurst(e.x,e.y,e.col,18);
+
+  // Orb values scale with wave but are capped to prevent XP flooding
+  const w=G.wave;
+  // XP scales with the HP scaling factor so tougher enemies always reward proportionally
+  const scForXp = w<=10 ? 1+w*0.1
+                : w<=30 ? 2.0+(w-10)*0.3
+                : w<=60 ? 8.0+(w-30)*1.5
+                : 53+(w-60)*6;
+  const waveBonus=Math.min(1+scForXp*0.015, 8); // soft cap at 8× XP multiplier
+
+  pickOrbTier(e.type).forEach(({t,n})=>{
+    const tier=ORB_TIERS[t];
+    for(let i=0;i<n;i++){
+      const a=rnd(0,Math.PI*2), d=rnd(8,22);
+      G.orbs.push({
+        x:e.x+Math.cos(a)*d, y:e.y+Math.sin(a)*d,
+        r:tier.r, col:tier.col,
+        val:Math.round(tier.val*waveBonus),
+        tier:tier.tier,
+        wobble:rnd(0,Math.PI*2)
+      });
+    }
+  });
+  if(G.p.vampirism) healPlayer(5,false);
+}
+
+function healPlayer(amt,show){
+  const p=G.p;
+  const before=p.hp;
+  p.hp=Math.min(p.maxHp,p.hp+amt);
+  const actual=Math.round(p.hp-before);
+  if(actual>0&&show) G.texts.push({x:p.x,y:p.y-p.r-10,txt:'+'+actual+' HP',col:'#5DCAA5',life:55});
+}
+
+function spawnHeart(){
+  const p=G.p; let x,y,tries=0;
+  do{x=rnd(50,W()-50);y=rnd(50,H()-50);tries++;}
+  while(dist({x,y},p)<130&&tries<12);
+  const big=Math.random()<0.2;
+  G.hearts.push({x,y,r:big?14:10,big,wobble:rnd(0,Math.PI*2),life:16});
+}
+
+function addXp(v){
+  const p=G.p; p.xp+=v;
+  if(p.xp>=p.xpNext){
+    p.xp-=p.xpNext;
+    // Additive XP growth with steeper increments at high levels:
+    // lv 1-20:  +15 XP  (~0.5s per level early)
+    // lv 21-50: +60 XP
+    // lv 51-80: +200 XP
+    // lv 81+:   +500 XP  (~10-15s per level at wave 27)
+    const inc = p.level>80 ? 500 : p.level>50 ? 200 : p.level>20 ? 60 : 15;
+    p.xpNext=p.xpNext+inc;
+    p.level++;
+    showUpgrades();
+  }
+}
+
+function spawnBurst(x,y,col,n){
+  for(let i=0;i<n;i++){
+    const a=rnd(0,Math.PI*2),s=rnd(1.2,3.8);
+    G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rnd(2,4),col,life:rnd(18,38)});
+  }
+}
+
+// ---- UPGRADES ----
+function buildUpgradePool(){
+  const p=G.p;
+  const pool=[];
+
+  // Static upgrades (filter out already-owned skills, and weapons at cap)
+  UPGRADES_STATIC.forEach(u=>{
+    if(u.type==='skill'&&p.skills.includes(u.stype)) return;
+    if(u.type==='weapon'&&p.weapons.length>=16) return;
+    // annotate weapon count live
+    if(u.type==='weapon'){
+      const count=p.weapons.filter(w=>w.type===u.wtype).length;
+      pool.push({...u, desc:`${u.desc} (${count} equipped)`});
+      return;
+    }
+    pool.push({...u});
+  });
+
+  // Per-skill level-up cards for each unlocked skill
+  p.skills.forEach(sk=>{
+    const lv=p.skillLevels[sk]||0;
+    const cards=SKILL_UPGRADES[sk];
+    if(cards&&lv<cards.length){
+      const card=cards[lv];
+      // Block if wave gate not yet reached
+      if(card.minWave && G.wave < card.minWave) return;
+      pool.push({id:'skillup_'+sk+'_'+(lv+1), icon:card.icon,
+        name:card.name, desc:card.desc, type:'skillup', sup:sk,
+        minWave:card.minWave||0});
+    }
+  });
+
+  // Infinitely repeatable scaling upgrades — always in pool
+  const stacks=p.scalingStacks||{};
+  SCALING_UPGRADES.forEach(u=>{
+    const n=stacks[u.skey]||0;
+    pool.push({...u, desc:u.desc(n), _stackKey:u.skey});
+  });
+
+  return pool;
+}
+
+function showUpgrades(){
+  G.upgrading=true;
+  const pool=buildUpgradePool();
+  // shuffle and pick 3 unique
+  const shuffled=pool.sort(()=>Math.random()-0.5);
+  const picks=shuffled.slice(0,3);
+
+  const el=document.getElementById('upgradeScreen');
+  el.style.display='flex';
+  el.innerHTML=`<h2>⬆️ Level ${G.p.level}! Choose an upgrade</h2>`;
+  picks.forEach(u=>{
+    const c=document.createElement('div'); c.className='upgradeCard';
+    // show current level badge for skill upgrades
+    let badge='';
+    if(u.type==='scaling'){
+      const n=(G.p.scalingStacks&&G.p.scalingStacks[u._stackKey])||0;
+      badge=`<div style="margin-left:auto;background:#0a4a2a;color:#4dff9a;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid #1a8a4a">∞ SCALE</div>`;
+    } else if(u.type==='skillup'){
+      const lv=(G.p.skillLevels[u.sup]||0)+1;
+      const isEvolution=lv===5;
+      const isEvolved=lv>5;
+      const waveTag=u.minWave ? ` · Wave ${u.minWave}+` : '';
+      badge=isEvolution
+        ? `<div style="margin-left:auto;background:#c8860a;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap;font-weight:600">EVOLVE ✨</div>`
+        : isEvolved
+          ? `<div style="margin-left:auto;background:#8B4513;color:#FFD700;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">POWER UP${waveTag}</div>`
+          : `<div style="margin-left:auto;background:#7F77DD;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">LVL UP</div>`;
+    }
+    c.innerHTML=`<div class="upgradeIcon">${u.icon}</div><div class="upgradeInfo" style="flex:1"><h3>${u.name}</h3><p>${u.desc}</p></div>${badge}`;
+    const pick=()=>applyUpgrade(u);
+    c.addEventListener('click',pick);
+    c.addEventListener('touchend',e=>{e.preventDefault();pick();},{passive:false});
+    el.appendChild(c);
+  });
+}
+
+function applyUpgrade(u){
+  const p=G.p;
+  if(u.type==='weapon'&&p.weapons.length<16) p.weapons.push({type:u.wtype,masterAngle:0,hitCD:{}});
+  else if(u.type==='skill'&&!p.skills.includes(u.stype)) p.skills.push(u.stype);
+  else if(u.type==='skillup') p.skillLevels[u.sup]=(p.skillLevels[u.sup]||0)+1;
+  else if(u.type==='stat'){
+    if(u.stat==='moveSpeed') p.moveSpeed*=(1+u.amt);
+    else if(u.stat==='spinSpeed') p.spinSpeed*=(1+u.amt);
+    else if(u.stat==='hp'){p.maxHp+=u.amt;p.hp=Math.min(p.hp+u.amt,p.maxHp);}
+    else if(u.stat==='damage') p.damageMult*=(1+u.amt);
+    else if(u.stat==='magnet') p.magnetRange*=u.amt;
+  } else if(u.type==='scaling'){
+    if(!p.scalingStacks) p.scalingStacks={};
+    p.scalingStacks[u._stackKey]=(p.scalingStacks[u._stackKey]||0)+1;
+    const t2=u.type2||u.stat;
+    if(t2==='damageMult') p.damageMult*=u.mult;
+    else if(t2==='skillDmgMult') { p.skillDmgMult=(p.skillDmgMult||1)*u.mult; p.cdReduction=(p.cdReduction||1)*0.92; }
+    else if(t2==='hp') { p.maxHp+=u.flat; p.hp=p.maxHp; } // full heal on iron flesh
+    else if(t2==='speedspin') { p.moveSpeed*=1.15; p.spinSpeed*=1.20; }
+    else if(t2==='cd') { p.cdReduction=(p.cdReduction||1)*0.90; }
+    if(u.htype==='regen'){ p.regenRate=Math.max(p.regenRate,4); if(p.regenTickTimer<=0)p.regenTickTimer=5; }
+    else if(u.htype==='regenBoost'){p.regenRate+=(u.amt||4); if(p.regenTickTimer<=0)p.regenTickTimer=5;}
+    else if(u.htype==='healOrbs') p.healOrbs=true;
+    else if(u.htype==='lifesteal') p.lifesteal=true;
+    else if(u.htype==='vampirism') p.vampirism=true;
+    else if(u.htype==='heartRate') p.heartRateBoost*=0.6;
+  }
+  document.getElementById('upgradeScreen').style.display='none';
+  G.upgrading=false;
+}
+
+function togglePause(){
+  if(!G||!G.running||G.upgrading) return;
+  paused=!paused;
+  document.getElementById('pauseScreen').style.display=paused?'flex':'none';
+  document.getElementById('pauseBtn').textContent=paused?'▶':'⏸';
+}
+
+// ---- LEADERBOARD ----
+const LB_KEY='slimeSurvivor_scores_v1';
+
+function loadScores(){
+  try{ return JSON.parse(localStorage.getItem(LB_KEY)||'[]'); }
+  catch(e){ return []; }
+}
+
+function saveScore(entry){
+  const scores=loadScores();
+  scores.push(entry);
+  scores.sort((a,b)=>b.score-a.score);
+  const trimmed=scores.slice(0,10);
+  try{ localStorage.setItem(LB_KEY,JSON.stringify(trimmed)); }
+  catch(e){}
+  return trimmed;
+}
+
+function renderLeaderboard(highlightScore){
+  const scores=loadScores();
+  const tbody=document.getElementById('lbBody');
+  if(!tbody) return;
+  if(scores.length===0){
+    tbody.innerHTML=`<tr><td colspan="6" style="color:#555;text-align:center;padding:20px;">No scores yet — play a game!</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=scores.map((s,i)=>{
+    const cls=i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const isNew=highlightScore&&s.score===highlightScore&&s.name===highlightScore._name?'lbNew':'';
+    const rank=['🥇','🥈','🥉'][i]||(i+1);
+    return`<tr class="${cls} ${isNew}">
+      <td style="color:#555">${rank}</td>
+      <td>${s.name||'Anonymous'}</td>
+      <td style="color:#FFD700;font-weight:600">${s.score.toLocaleString()}</td>
+      <td>W${s.wave}</td>
+      <td>Lv${s.level}</td>
+      <td>${s.time}</td>
+    </tr>`;
+  }).join('');
+}
+
+function showLeaderboard(highlightScore){
+  renderLeaderboard(highlightScore);
+  document.getElementById('leaderboardScreen').style.display='flex';
+}
+
+function endGame(){
+  G.running=false;
+  const m=Math.floor(G.elapsed/60).toString().padStart(2,'0');
+  const s=Math.floor(G.elapsed%60).toString().padStart(2,'0');
+  const timeStr=m+':'+s;
+
+  const entry={
+    score:G.score, wave:G.wave, level:G.p.level,
+    kills:G.kills, time:timeStr, name:'', ts:Date.now()
+  };
+
+  // Show name entry
+  const nb=document.getElementById('nameEntryBox');
+  document.getElementById('nameEntryStats').innerHTML=
+    `Wave ${G.wave} · Level ${G.p.level} · ${G.kills} kills<br>`+
+    `<span style="font-size:28px;font-weight:700;color:#FFD700">${G.score.toLocaleString()} pts</span>`;
+  document.getElementById('nameInput').value='';
+  nb.style.display='flex';
+  setTimeout(()=>document.getElementById('nameInput').focus(),100);
+
+  const submit=(name)=>{
+    entry.name=name||'Anonymous';
+    entry._name=entry.name;
+    nb.style.display='none';
+    saveScore(entry);
+    showLeaderboard(entry.score);
+  };
+
+  const submitBtn=document.getElementById('submitScoreBtn');
+  const skipBtn=document.getElementById('skipNameBtn');
+  // remove old listeners by cloning
+  const newSubmit=submitBtn.cloneNode(true);
+  const newSkip=skipBtn.cloneNode(true);
+  submitBtn.parentNode.replaceChild(newSubmit,submitBtn);
+  skipBtn.parentNode.replaceChild(newSkip,skipBtn);
+
+  newSubmit.addEventListener('click',()=>submit(document.getElementById('nameInput').value.trim()));
+  newSubmit.addEventListener('touchend',e=>{e.preventDefault();submit(document.getElementById('nameInput').value.trim());},{passive:false});
+  newSkip.addEventListener('click',()=>submit(''));
+  newSkip.addEventListener('touchend',e=>{e.preventDefault();submit('');},{passive:false});
+  document.getElementById('nameInput').addEventListener('keydown',e=>{
+    if(e.key==='Enter') submit(document.getElementById('nameInput').value.trim());
+  });
+}
+
+function showWave(w){
+  const el=document.getElementById('waveLabel');
+  el.textContent=w===1?'🟢 Game Start!':`🌊 Wave ${w}!`;
+  el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',2400);
+}
+
+function updateHUD(){
+  const{p,kills,wave,elapsed}=G;
+  const m=Math.floor(elapsed/60).toString().padStart(2,'0');
+  const s=Math.floor(elapsed%60).toString().padStart(2,'0');
+  document.getElementById('killLabel').textContent='💀 '+kills;
+  const waveCountdown=Math.ceil(G.waveSec-G.waveTimer);
+  document.getElementById('waveInfo').textContent=`Wave ${wave} · ${waveCountdown}s`;
+  document.getElementById('timeLabel').textContent=m+':'+s;
+  document.getElementById('xpFill').style.width=Math.min(100,(p.xp/p.xpNext)*100)+'%';
+  document.getElementById('hpLabel').textContent='HP '+Math.ceil(p.hp)+'/'+p.maxHp;
+  const pct=p.hp/p.maxHp;
+  document.getElementById('hpFill').style.width=Math.max(0,pct*100)+'%';
+  document.getElementById('hpFill').style.background=pct>0.5?'#1D9E75':pct>0.25?'#EF9F27':'#D85A30';
+}
+
+// ---- RENDER ----
+function render(){
+  ctx.clearRect(0,0,W(),H());
+  ctx.save();
+  if(G&&G.shakeTimer>0){
+    const s=G.shakeTimer*0.6;
+    ctx.translate(rnd(-s,s),rnd(-s,s));
+  }
+  drawBg();
+  if(!G) return;
+  // Absolute Zero white flash overlay
+  if(G.flashTimer>0){
+    ctx.save();
+    ctx.globalAlpha=Math.min(1, G.flashTimer/15)*0.85;
+    ctx.fillStyle='#c8eeff';
+    ctx.fillRect(0,0,W(),H());
+    ctx.restore();
+  }
+  G.orbs.forEach(drawOrb);
+  G.hearts.forEach(drawHeart);
+  G.particles.filter(p=>p.type==='wind').forEach(drawWindParticle);
+  G.projs.filter(p=>p.type==='wind').forEach(drawWindRing);
+  G.projs.filter(p=>p.type!=='wind').forEach(drawProj);
+  G.particles.filter(p=>p.type!=='wind').forEach(drawParticle);
+  G.enemies.forEach(drawEnemy);
+  drawPlayer();
+  G.texts.forEach(drawText);
+  ctx.restore();
+  if(paused) drawPauseDim();
+}
+
+function drawPauseDim(){
+  ctx.save();ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,W(),H());ctx.restore();
+}
+
+function drawBg(){
+  ctx.fillStyle='#0f0f1e';ctx.fillRect(0,0,W(),H());
+  ctx.strokeStyle='rgba(127,119,221,0.05)';ctx.lineWidth=0.5;
+  const gs=52;
+  for(let x=0;x<W();x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H());ctx.stroke();}
+  for(let y=0;y<H();y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W(),y);ctx.stroke();}
+}
+
+// ---- PLAYER DRAW ----
+function drawPlayer(){
+  const p=G.p;
+  const bob=Math.sin(p.wobble)*2.8;
+  const sqX=1+Math.sin(p.wobble*1.8)*0.06;
+  const sqY=1/sqX;
+
+  // draw weapons behind player
+  p.weapons.forEach(w=>drawWeapon(w));
+
+  ctx.save();
+  ctx.translate(p.x,p.y+bob);
+  if(p.invTimer>0&&Math.floor(p.invTimer/4)%2===0) ctx.globalAlpha=0.3;
+
+  // shadow
+  ctx.beginPath();ctx.ellipse(0,p.r,p.r*sqX*1.1,5,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fill();
+
+  // regen aura (behind body)
+  if(p.regenRate>0){
+    ctx.save();
+    ctx.globalAlpha=0.18+Math.sin(p.wobble*2)*0.08;
+    ctx.beginPath();ctx.ellipse(0,0,p.r*1.55,p.r*1.45,0,0,Math.PI*2);
+    ctx.fillStyle='#1D9E75';ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.scale(sqX,sqY);
+
+  // UNIQUE PLAYER — deep indigo/violet slime with crystal pattern
+  // outer body
+  ctx.beginPath();ctx.ellipse(0,0,p.r,p.r*0.92,0,0,Math.PI*2);
+  ctx.fillStyle='#2d1b6e';ctx.fill(); // deep indigo base
+
+  // crystal facet 1
+  ctx.beginPath();ctx.moveTo(0,-p.r*0.9);ctx.lineTo(p.r*0.55,-p.r*0.1);
+  ctx.lineTo(p.r*0.2,p.r*0.7);ctx.lineTo(-p.r*0.2,p.r*0.7);
+  ctx.lineTo(-p.r*0.55,-p.r*0.1);ctx.closePath();
+  ctx.fillStyle='#4a2fa0';ctx.fill();
+
+  // crystal facet 2 (lighter highlight)
+  ctx.beginPath();ctx.moveTo(0,-p.r*0.85);ctx.lineTo(p.r*0.3,-p.r*0.05);
+  ctx.lineTo(0,p.r*0.3);ctx.lineTo(-p.r*0.3,-p.r*0.05);ctx.closePath();
+  ctx.fillStyle='#7055cc';ctx.fill();
+
+  // inner glow core
+  ctx.beginPath();ctx.ellipse(0,-p.r*0.05,p.r*0.38,p.r*0.32,0,0,Math.PI*2);
+  ctx.fillStyle='rgba(160,120,255,0.55)';ctx.fill();
+
+  // crown points (3 small spikes on top)
+  for(let i=-1;i<=1;i++){
+    ctx.beginPath();
+    ctx.moveTo(i*p.r*0.32,-p.r*0.78);
+    ctx.lineTo(i*p.r*0.32-p.r*0.1,-p.r*0.55);
+    ctx.lineTo(i*p.r*0.32+p.r*0.1,-p.r*0.55);
+    ctx.closePath();
+    ctx.fillStyle='#c4a0ff';ctx.fill();
+  }
+
+  // shine
+  ctx.beginPath();ctx.ellipse(-p.r*0.22,-p.r*0.32,p.r*0.2,p.r*0.12,-0.5,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.45)';ctx.fill();
+
+  // eyes — larger, more dramatic
+  const er=p.r*0.21,eo=p.r*0.3,ed=0.3;
+  [[-1],[1]].forEach(([side])=>{
+    // eye white
+    ctx.beginPath();ctx.ellipse(side*eo,-p.r*0.08,er*1.1,er,0,0,Math.PI*2);
+    ctx.fillStyle='#e8e0ff';ctx.fill();
+    // pupil
+    ctx.beginPath();ctx.ellipse(
+      side*eo+Math.cos(p.eyeDir)*ed*er,
+      -p.r*0.08+Math.sin(p.eyeDir)*ed*er,
+      er*0.55,er*0.65,0,0,Math.PI*2);
+    ctx.fillStyle='#1a0a3a';ctx.fill();
+    // pupil shine
+    ctx.beginPath();ctx.ellipse(
+      side*eo+Math.cos(p.eyeDir)*ed*er-er*0.18,
+      -p.r*0.08+Math.sin(p.eyeDir)*ed*er-er*0.22,
+      er*0.18,er*0.14,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.8)';ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+// ---- WEAPON DRAW — clock-hand style ----
+function drawWeapon(w){
+  if(w.cx===undefined) return;
+  const p=G.p;
+  const angle=w.orbitAngle;
+  ctx.save();
+  ctx.translate(p.x,p.y);
+  ctx.rotate(angle);
+  const orbitR=44+p.weapons.length*5;
+
+  if(w.type==='spear'){
+    // spear: long needle pointing outward from center
+    ctx.strokeStyle='#c8c0f0';ctx.lineWidth=3;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(orbitR-18,0);ctx.lineTo(orbitR+18,0);ctx.stroke();
+    // tip
+    ctx.fillStyle='#7F77DD';
+    ctx.beginPath();ctx.moveTo(orbitR+14,-4);ctx.lineTo(orbitR+14,4);ctx.lineTo(orbitR+26,0);ctx.closePath();ctx.fill();
+    // gem at handle
+    ctx.beginPath();ctx.arc(orbitR-18,0,4,0,Math.PI*2);
+    ctx.fillStyle='#AFA9EC';ctx.fill();
+  } else {
+    // sword: blade radiates outward from orbit position, like a clock hand pointing away from center
+    // draw blade aligned along the radius (pointing away from player center)
+    ctx.save();
+    ctx.translate(orbitR,0);
+    // blade
+    ctx.fillStyle='#dde8f5';
+    ctx.beginPath();ctx.moveTo(-4,-2);ctx.lineTo(16,-2);ctx.lineTo(18,0);ctx.lineTo(16,2);ctx.lineTo(-4,2);ctx.closePath();ctx.fill();
+    // fuller (groove)
+    ctx.strokeStyle='rgba(180,200,230,0.6)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(-2,0);ctx.lineTo(14,0);ctx.stroke();
+    // tip highlight
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();ctx.moveTo(14,-1.5);ctx.lineTo(18,0);ctx.lineTo(14,1.5);ctx.closePath();ctx.fill();
+    // guard
+    ctx.fillStyle='#FFD700';
+    ctx.beginPath();ctx.moveTo(-4,-6);ctx.lineTo(-4,6);ctx.lineTo(-8,5);ctx.lineTo(-9,0);ctx.lineTo(-8,-5);ctx.closePath();ctx.fill();
+    // handle
+    ctx.fillStyle='#6b3a1a';
+    ctx.fillRect(-14,-2.5,6,5);
+    // pommel
+    ctx.beginPath();ctx.arc(-14,0,3.5,0,Math.PI*2);
+    ctx.fillStyle='#cc9933';ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ---- ENEMY DRAW ----
+function drawEnemy(e){
+  ctx.save();
+  const frozen=e.freezeTimer>0;
+  ctx.translate(e.x,e.y+Math.sin(e.wobble)*2);
+  if(e.hitFlash>0) ctx.globalAlpha=0.4+Math.sin(e.hitFlash*1.2)*0.6;
+  const r=e.r;
+
+  // freeze tint overlay
+  let col=e.col;
+  if(frozen) col='#a8d8f0';
+
+  ctx.fillStyle=col;
+  if(e.type==='bat'){
+    [[-1],[1]].forEach(([s])=>{
+      ctx.beginPath();ctx.moveTo(s*r*0.4,0);
+      ctx.quadraticCurveTo(s*r*1.1,-r,s*r*1.4,r*0.1);
+      ctx.quadraticCurveTo(s*r*0.9,r*0.3,s*r*0.4,0);ctx.fill();
+    });
+    ctx.beginPath();ctx.ellipse(0,0,r*0.42,r*0.65,0,0,Math.PI*2);ctx.fill();
+  } else if(e.type==='ghost'){
+    ctx.globalAlpha*=0.72;
+    ctx.beginPath();ctx.arc(0,-r*0.05,r*0.9,Math.PI,0);
+    ctx.lineTo(r*0.9,r*0.55);ctx.quadraticCurveTo(r*0.6,r,0,r*0.5);
+    ctx.quadraticCurveTo(-r*0.6,r,-r*0.9,r*0.55);ctx.closePath();ctx.fill();
+  } else if(e.type==='boss'){
+    ctx.beginPath();ctx.ellipse(0,0,r,r*0.9,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,100,30,0.5)';
+    for(let i=0;i<6;i++){
+      const a=(Math.PI*2/6)*i+e.wobble*0.25;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r*1.35,a,a+0.28);ctx.closePath();ctx.fill();
+    }
+  } else if(e.type==='eliteBoss'){
+    // armoured knight — dark red with spiked shell
+    ctx.beginPath();ctx.ellipse(0,0,r,r*0.9,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(60,0,0,0.7)';
+    for(let i=0;i<8;i++){
+      const a=(Math.PI*2/8)*i+e.wobble*0.1;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r*1.25,a,a+0.25);ctx.closePath();ctx.fill();
+    }
+    ctx.strokeStyle='#cc2200';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(0,0,r,r*0.9,0,0,Math.PI*2);ctx.stroke();
+  } else if(e.type==='megaBoss'){
+    // giant destroyer — deep purple/black with pulsing aura
+    const pulse=1+Math.sin(e.wobble*1.5)*0.04;
+    ctx.save();ctx.scale(pulse,pulse);
+    ctx.fillStyle='#0d0020';
+    ctx.beginPath();ctx.ellipse(0,0,r,r*0.88,0,0,Math.PI*2);ctx.fill();
+    // void tendrils
+    ctx.fillStyle='rgba(80,0,180,0.5)';
+    for(let i=0;i<10;i++){
+      const a=(Math.PI*2/10)*i+e.wobble*0.15;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r*1.4,a,a+0.22);ctx.closePath();ctx.fill();
+    }
+    // inner core glow
+    ctx.fillStyle='rgba(160,0,255,0.6)';
+    ctx.beginPath();ctx.ellipse(0,0,r*0.55,r*0.5,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(220,180,255,0.8)';
+    ctx.beginPath();ctx.ellipse(0,0,r*0.28,r*0.25,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  } else {
+    // slime, bat, skeleton, ghost — catch-all for basic enemies
+    ctx.beginPath();ctx.ellipse(0,0,r,r*0.85,0,0,Math.PI*2);ctx.fill();
+    if(e.type==='skeleton'){
+      ctx.strokeStyle='rgba(200,210,190,0.35)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(-r*0.3,-r*0.55);ctx.lineTo(-r*0.3,r*0.55);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(r*0.3,-r*0.55);ctx.lineTo(r*0.3,r*0.55);ctx.stroke();
+    }
+  }
+
+  // freeze crystal overlay
+  if(frozen){
+    ctx.globalAlpha=0.5+Math.sin(e.wobble*3)*0.1;
+    ctx.strokeStyle='#cce8ff';ctx.lineWidth=1.5;
+    for(let i=0;i<4;i++){
+      const a=(Math.PI/4)+i*(Math.PI/2);
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*r*1.2,Math.sin(a)*r*1.2);ctx.stroke();
+    }
+  }
+
+  ctx.globalAlpha=1;
+  if(e.hp<e.maxHp){
+    const bw=r*2.2,bh=3.5,bx=-r*1.1,by=-r-9;
+    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(bx,by,bw,bh);
+    ctx.fillStyle=e.hp/e.maxHp>0.5?'#1D9E75':'#D85A30';
+    ctx.fillRect(bx,by,(e.hp/e.maxHp)*bw,bh);
+  }
+  const er2=r*0.2,eo2=r*0.27;
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(-eo2,-r*0.08,er2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(eo2,-r*0.08,er2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#111';
+  ctx.beginPath();ctx.arc(-eo2,-r*0.08,er2*0.55,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(eo2,-r*0.08,er2*0.55,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+// ---- PROJECTILE DRAW ----
+function drawProj(pr){
+  if(pr.type==='wind') return;
+
+  // tornado hazard zone
+  if(pr.type==='tornado'){
+    ctx.save();
+    const spin=pr.spinAngle||pr.life*0.04;
+    const alpha=Math.min(0.7, pr.life/120)*0.8;
+    ctx.globalAlpha=alpha;
+    const col=pr.electric?'rgba(160,210,255,':'rgba(180,230,255,';
+    for(let i=0;i<4;i++){
+      const a=spin+i*(Math.PI/2);
+      const sr=pr.radius*(0.28+i*0.24);
+      ctx.strokeStyle=`${col}${0.9-i*0.18})`;
+      ctx.lineWidth=4-i*0.7;
+      ctx.beginPath();ctx.arc(pr.cx,pr.cy,sr,a,a+Math.PI*1.6);ctx.stroke();
+    }
+    if(pr.electric){
+      ctx.globalAlpha=alpha*0.6;
+      ctx.strokeStyle='rgba(220,240,255,0.9)';ctx.lineWidth=1.5;
+      for(let i=0;i<3;i++){
+        const a=spin*1.5+i*(Math.PI*2/3);
+        ctx.beginPath();ctx.moveTo(pr.cx,pr.cy);
+        ctx.lineTo(pr.cx+Math.cos(a)*pr.radius,pr.cy+Math.sin(a)*pr.radius);ctx.stroke();
+      }
+    }
+    ctx.globalAlpha=alpha*0.5;
+    ctx.fillStyle=pr.electric?'rgba(180,220,255,0.8)':'rgba(200,240,255,0.8)';
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,6,0,Math.PI*2);ctx.fill();
+    ctx.restore(); return;
+  }
+
+  // fire zone (meteor crater)
+  if(pr.type==='fireZone'){
+    ctx.save();
+    const alpha=Math.min(0.6,pr.life/60)*0.7;
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle='rgba(255,80,0,0.25)';
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,140,0,0.6)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
+    // fire flicker dots
+    for(let i=0;i<5;i++){
+      const a=pr.life*0.05+i*(Math.PI*2/5);
+      const fr=rnd(pr.radius*0.2,pr.radius*0.8);
+      ctx.fillStyle=`rgba(255,${100+Math.floor(rnd(0,100))},0,0.7)`;
+      ctx.beginPath();ctx.arc(pr.cx+Math.cos(a)*fr,pr.cy+Math.sin(a)*fr,rnd(3,6),0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore(); return;
+  }
+
+  // ice shockwave ring (Absolute Zero)
+  if(pr.type==='iceShockwave'){
+    if((pr.delay||0)>0) return;
+    ctx.save();
+    const fade=Math.max(0, pr.life/(pr.maxLife||50));
+    ctx.globalAlpha=fade*0.9;
+    ctx.strokeStyle=pr.col||'rgba(160,220,255,0.9)';
+    ctx.lineWidth=6+fade*8;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,Math.max(0,pr.radius),0,Math.PI*2);ctx.stroke();
+    // bright inner edge
+    ctx.globalAlpha=fade*0.5;
+    ctx.strokeStyle='rgba(255,255,255,0.95)';
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,Math.max(0,pr.radius-4),0,Math.PI*2);ctx.stroke();
+    ctx.restore(); return;
+  }
+  if(pr.type==='stormCloud'){
+    ctx.save();
+    const fade=Math.min(1, pr.life/30);
+    const t2=Date.now()*0.003;
+    ctx.globalAlpha=fade*0.38;
+    ctx.fillStyle=pr.mega?'rgba(40,0,80,0.7)':'rgba(10,10,50,0.65)';
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=fade*0.65;
+    ctx.strokeStyle=pr.mega?'rgba(180,100,255,0.8)':'rgba(100,140,255,0.7)';
+    ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
+    ctx.globalAlpha=fade*0.48;
+    for(let i=0;i<(pr.mega?8:4);i++){
+      const a=t2*1.4+i*(Math.PI*2/(pr.mega?8:4));
+      const sr=pr.radius*(0.3+0.5*((i%3)/3));
+      ctx.strokeStyle=pr.mega?'rgba(220,160,255,0.6)':'rgba(140,180,255,0.6)';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(pr.cx,pr.cy,sr,a,a+1.0);ctx.stroke();
+    }
+    const flashPulse=0.5+0.5*Math.sin(t2*8);
+    ctx.globalAlpha=fade*flashPulse*0.75;
+    ctx.fillStyle=pr.mega?'rgba(200,150,255,0.9)':'rgba(180,210,255,0.9)';
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,8+flashPulse*5,0,Math.PI*2);ctx.fill();
+    ctx.restore(); return;
+  }
+
+  // bolt flash — bright starburst at strike location
+  if(pr.type==='boltFlash'){
+    ctx.save();
+    const f=pr.life/pr.maxLife;
+    ctx.globalAlpha=f*0.55;
+    ctx.fillStyle=pr.glow||'rgba(255,220,80,0.5)';
+    ctx.beginPath();ctx.arc(pr.x,pr.y,32*f,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=f;
+    ctx.fillStyle=pr.col||'#FFE94D';
+    ctx.beginPath();ctx.arc(pr.x,pr.y,10*f,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=pr.col||'#FFE94D';
+    ctx.lineWidth=2;
+    for(let i=0;i<8;i++){
+      const a=(Math.PI/4)*i;
+      ctx.beginPath();ctx.moveTo(pr.x,pr.y);
+      ctx.lineTo(pr.x+Math.cos(a)*(22*f), pr.y+Math.sin(a)*(22*f));
+      ctx.stroke();
+    }
+    // jagged bolt line from above
+    ctx.globalAlpha=f*0.9;
+    ctx.strokeStyle=pr.col||'#FFE94D';
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    let bx=pr.x, by=pr.y-130;
+    ctx.moveTo(bx,by);
+    for(let s=0;s<7;s++){ bx+=rnd(-20,20); by+=19; ctx.lineTo(bx,by); }
+    ctx.lineTo(pr.x,pr.y);
+    ctx.stroke();
+    ctx.globalAlpha=f*0.55;
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // bolt chain — zigzag arc between chained enemies
+  if(pr.type==='boltChain'){
+    ctx.save();
+    const f=pr.life/pr.maxLife;
+    ctx.globalAlpha=f*0.9;
+    ctx.strokeStyle=pr.col||'#AAD4FF';
+    ctx.lineWidth=2.5;
+    ctx.beginPath();
+    ctx.moveTo(pr.x1,pr.y1);
+    for(let s=1;s<=5;s++){
+      const t=s/5;
+      ctx.lineTo(lerp(pr.x1,pr.x2,t)+rnd(-16,16), lerp(pr.y1,pr.y2,t)+rnd(-16,16));
+    }
+    ctx.lineTo(pr.x2,pr.y2);
+    ctx.stroke();
+    ctx.globalAlpha=f*0.4;
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=1; ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // storm bolt (legacy)
+  if(pr.type==='stormBolt'){
+    ctx.save(); ctx.globalAlpha=0.8;
+    ctx.strokeStyle='rgba(220,240,255,0.9)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(pr.x,pr.y);ctx.lineTo(pr.tx||pr.x,pr.ty||pr.y);ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // blizzard aura (persistent frost ground around player)
+  if(pr.type==='blizzardAura'){
+    const pp=G.p;
+    ctx.save();
+    // icy ground fill
+    ctx.globalAlpha=0.28;
+    const grad=ctx.createRadialGradient(pp.x,pp.y,0,pp.x,pp.y,pr.r);
+    grad.addColorStop(0,'rgba(200,235,255,0.6)');
+    grad.addColorStop(0.6,'rgba(140,210,255,0.35)');
+    grad.addColorStop(1,'rgba(100,180,255,0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();ctx.arc(pp.x,pp.y,pr.r,0,Math.PI*2);ctx.fill();
+    // spinning crystal arms
+    ctx.globalAlpha=0.5;
+    ctx.strokeStyle='rgba(200,240,255,0.7)';ctx.lineWidth=1.2;
+    for(let i=0;i<12;i++){
+      const a=pr.spinAngle+(Math.PI/6)*i;
+      const len=pr.r*(0.35+0.45*((i%2)===0?1:0.6));
+      ctx.beginPath();
+      ctx.moveTo(pp.x+Math.cos(a)*pr.r*0.12, pp.y+Math.sin(a)*pr.r*0.12);
+      ctx.lineTo(pp.x+Math.cos(a)*len, pp.y+Math.sin(a)*len);
+      ctx.stroke();
+      // branch ticks at midpoint
+      const mx=pp.x+Math.cos(a)*len*0.55, my=pp.y+Math.sin(a)*len*0.55;
+      ctx.beginPath();
+      ctx.moveTo(mx+Math.cos(a+Math.PI/2)*10, my+Math.sin(a+Math.PI/2)*10);
+      ctx.lineTo(mx+Math.cos(a-Math.PI/2)*10, my+Math.sin(a-Math.PI/2)*10);
+      ctx.stroke();
+    }
+    // orbiting snow dots
+    ctx.globalAlpha=0.6;
+    for(let i=0;i<16;i++){
+      const a=pr.spinAngle*1.8+(Math.PI*2/16)*i;
+      const dr=pr.r*(0.45+0.38*Math.sin(pr.spinAngle*1.2+i*0.8));
+      ctx.fillStyle='rgba(220,245,255,0.8)';
+      ctx.beginPath();ctx.arc(pp.x+Math.cos(a)*dr, pp.y+Math.sin(a)*dr, 2,0,Math.PI*2);ctx.fill();
+    }
+    // edge ring
+    ctx.globalAlpha=0.3;
+    ctx.strokeStyle='rgba(160,220,255,0.8)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(pp.x,pp.y,pr.r,0,Math.PI*2);ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  ctx.save();ctx.translate(pr.x,pr.y);
+
+  if(pr.type==='meteor'){
+    // rocky boulder with fire trail
+    const angle=Math.atan2(pr.vy,pr.vx);
+    ctx.save();ctx.rotate(angle);
+    // trail
+    ctx.fillStyle='rgba(255,120,0,0.15)';
+    ctx.beginPath();ctx.ellipse(-pr.r*1.8,0,pr.r*2,pr.r*0.8,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,60,0,0.25)';
+    ctx.beginPath();ctx.ellipse(-pr.r*1.2,0,pr.r*1.3,pr.r*0.6,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+    // rock body
+    ctx.fillStyle=pr.mega?'#5a2a00':'#3a2000';
+    ctx.beginPath();ctx.arc(0,0,pr.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=pr.mega?'#8b4a10':'#6b3a10';
+    ctx.beginPath();ctx.arc(-pr.r*0.2,-pr.r*0.2,pr.r*0.7,0,Math.PI*2);ctx.fill();
+    // fire corona
+    ctx.fillStyle='rgba(255,140,0,0.55)';
+    ctx.beginPath();ctx.arc(0,0,pr.r*1.4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,220,50,0.4)';
+    ctx.beginPath();ctx.arc(0,0,pr.r*0.9,0,Math.PI*2);ctx.fill();
+    if(pr.mega){
+      ctx.strokeStyle='rgba(255,60,0,0.8)';ctx.lineWidth=2;
+      for(let i=0;i<6;i++){
+        const a=(Math.PI/3)*i;
+        ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*pr.r*1.6,Math.sin(a)*pr.r*1.6);ctx.stroke();
+      }
+    }
+  } else if(pr.type==='fireball'){
+    ctx.fillStyle='rgba(239,120,20,0.25)';ctx.beginPath();ctx.arc(0,0,pr.r*2.2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(239,159,39,0.5)';ctx.beginPath();ctx.arc(0,0,pr.r*1.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#EF9F27';ctx.beginPath();ctx.arc(0,0,pr.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,230,120,0.9)';ctx.beginPath();ctx.arc(-pr.r*0.3,-pr.r*0.3,pr.r*0.4,0,Math.PI*2);ctx.fill();
+    if(pr.splashR){
+      ctx.strokeStyle='rgba(239,159,39,0.12)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(0,0,pr.splashR,0,Math.PI*2);ctx.stroke();
+    }
+  } else if(pr.type==='ice'){
+    ctx.fillStyle='rgba(100,180,255,0.2)';ctx.beginPath();ctx.arc(0,0,pr.r*1.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#85B7EB';ctx.beginPath();ctx.arc(0,0,pr.r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#dff0ff';ctx.lineWidth=1;
+    for(let i=0;i<6;i++){const a=(Math.PI/3)*i;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*pr.r,Math.sin(a)*pr.r);ctx.stroke();}
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.beginPath();ctx.arc(-pr.r*0.25,-pr.r*0.25,pr.r*0.3,0,Math.PI*2);ctx.fill();
+  } else if(pr.type==='blizzard'){
+    // larger, more dramatic ice shard
+    ctx.fillStyle='rgba(160,220,255,0.3)';ctx.beginPath();ctx.arc(0,0,pr.r*1.6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#b0e0ff';ctx.beginPath();ctx.arc(0,0,pr.r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    for(let i=0;i<8;i++){const a=(Math.PI/4)*i;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*pr.r,Math.sin(a)*pr.r);ctx.stroke();}
+    // cross
+    ctx.strokeStyle='rgba(200,240,255,0.8)';ctx.lineWidth=1;
+    for(let i=0;i<4;i++){const a=(Math.PI/8)+i*(Math.PI/4);const mid=pr.r*0.6;ctx.beginPath();ctx.moveTo(Math.cos(a)*mid,Math.sin(a)*mid);ctx.lineTo(Math.cos(a)*(mid+pr.r*0.35),Math.sin(a)*(mid+pr.r*0.35));ctx.stroke();}
+    ctx.fillStyle='rgba(255,255,255,0.9)';ctx.beginPath();ctx.arc(0,0,pr.r*0.3,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawWindRing(pr){
+  if(pr.type!=='wind') return;
+  ctx.save();
+  ctx.globalAlpha=(pr.life/20)*0.55;
+  ctx.strokeStyle='rgba(180,230,255,0.8)';
+  ctx.lineWidth=3+pr.radius/20;
+  ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
+  // inner ring
+  ctx.globalAlpha*=0.4;
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius*0.6,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
+
+function drawWindParticle(pt){
+  ctx.save();
+  ctx.globalAlpha=Math.max(0,pt.life/45)*0.7;
+  ctx.fillStyle=pt.col;
+  ctx.beginPath();ctx.arc(pt.x,pt.y,Math.max(0.5,pt.r*(pt.life/45)),0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+// ---- HEART DRAW (animated) ----
+function drawHeart(h){
+  ctx.save();
+  ctx.translate(h.x,h.y+Math.sin(h.wobble)*3);
+  // glow ring animation
+  const glowAlpha=0.15+Math.sin(h.wobble*3)*0.1;
+  ctx.globalAlpha=glowAlpha;
+  ctx.fillStyle=h.big?'#ff3366':'#ff6b8a';
+  ctx.beginPath();ctx.arc(0,0,h.r*2.2,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=1;
+
+  const pulse=1+Math.sin(h.wobble*2.8)*0.1;
+  ctx.scale(pulse,pulse);
+  if(h.life<3) ctx.globalAlpha=h.life/3;
+
+  const r=h.r;
+  const col=h.big?'#ff3366':'#ff6b8a';
+  const inner=h.big?'#ff99bb':'#ffb3c6';
+
+  // heart shape
+  ctx.beginPath();
+  ctx.moveTo(0,r*0.3);
+  ctx.bezierCurveTo(r*0.5,-r*0.5,r*1.2,r*0.1,r*0.6,r*0.8);
+  ctx.bezierCurveTo(r*0.3,r*1.2,0,r*1.1,0,r*0.9);
+  ctx.bezierCurveTo(0,r*1.1,-r*0.3,r*1.2,-r*0.6,r*0.8);
+  ctx.bezierCurveTo(-r*1.2,r*0.1,-r*0.5,-r*0.5,0,r*0.3);
+  ctx.closePath();
+  ctx.fillStyle=col;ctx.fill();
+  // shine
+  ctx.beginPath();ctx.ellipse(-r*0.2,-r*0.05,r*0.22,r*0.13,-0.5,0,Math.PI*2);
+  ctx.fillStyle=inner;ctx.fill();
+  // spin particles around the heart
+  for(let i=0;i<4;i++){
+    const a=h.wobble*2+(Math.PI/2)*i;
+    ctx.beginPath();ctx.arc(Math.cos(a)*r*1.6,Math.sin(a)*r*1.4,r*0.18,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,200,220,0.5)';ctx.fill();
+  }
+  if(h.big){
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.font='bold 9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('+35',0,r*0.52);
+  }
+  ctx.restore();
+}
+
+// ---- ORB DRAW (animated) ----
+function drawOrb(o){
+  ctx.save();
+  o.wobble=(o.wobble||0)+0.05;
+  const bob=Math.sin(o.wobble)*1.5;
+  const pulse=1+Math.sin(o.wobble*1.8)*0.08;
+  ctx.translate(o.x, o.y+bob);
+  ctx.scale(pulse,pulse);
+  // glow halo
+  ctx.fillStyle=o.col+'44';
+  ctx.beginPath();ctx.arc(0,0,o.r*2.2,0,Math.PI*2);ctx.fill();
+  // core
+  ctx.fillStyle=o.col;
+  ctx.beginPath();ctx.arc(0,0,o.r,0,Math.PI*2);ctx.fill();
+  // gem gets a star shape instead
+  if(o.tier==='gem'){
+    ctx.fillStyle='rgba(255,255,200,0.9)';
+    for(let i=0;i<5;i++){
+      const a=(Math.PI*2/5)*i-Math.PI/2+o.wobble*0.5;
+      const ia=(Math.PI*2/5)*i+Math.PI/10-Math.PI/2+o.wobble*0.5;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(a)*o.r*0.9,Math.sin(a)*o.r*0.9);
+      ctx.lineTo(Math.cos(ia)*o.r*0.45,Math.sin(ia)*o.r*0.45);
+      ctx.closePath();ctx.fill();
+    }
+    // rotating sparkles
+    for(let i=0;i<4;i++){
+      const a=o.wobble*2+(Math.PI/2)*i;
+      ctx.beginPath();ctx.arc(Math.cos(a)*o.r*1.8,Math.sin(a)*o.r*1.8,1.8,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,230,100,0.8)';ctx.fill();
+    }
+  } else {
+    // shine dot
+    ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.beginPath();ctx.arc(-o.r*0.28,-o.r*0.28,o.r*0.28,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---- PARTICLE DRAW ----
+function drawParticle(pt){
+  if(pt.type==='wind') return;
+  if(pt.type==='bolt'){
+    ctx.save();ctx.globalAlpha=pt.life/22;
+    ctx.strokeStyle='#FFD700';ctx.lineWidth=2.5;ctx.shadowColor='#FFD700';ctx.shadowBlur=4;
+    let lx=pt.fromX||pt.x,ly=pt.fromY||pt.y;
+    const steps=6;
+    for(let i=0;i<steps;i++){
+      const progress=i/steps;
+      const tx=lerp(lx,pt.x,progress+1/steps);
+      const ty=lerp(ly,pt.y,progress+1/steps);
+      const nx=tx+rnd(-12,12),ny=ty+rnd(-8,8);
+      ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(nx,ny);ctx.stroke();
+      lx=nx;ly=ny;
+    }
+    ctx.restore();return;
+  }
+  ctx.save();
+  ctx.globalAlpha=Math.max(0,pt.life/38);
+  ctx.fillStyle=pt.col;
+  ctx.beginPath();ctx.arc(pt.x,pt.y,Math.max(0.5,pt.r*(pt.life/38)),0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawText(t){
+  ctx.save();
+  ctx.globalAlpha=t.life/40;
+  ctx.fillStyle=t.col;
+  ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+  ctx.fillText(t.txt,t.x,t.y);
+  ctx.restore();
+}
+
+// ---- JOYSTICK ----
+const jZone=document.getElementById('joystickZone');
+const jStick=document.getElementById('joystickStick');
+jZone.addEventListener('touchstart',e=>{
+  e.preventDefault();joy.active=true;
+  const r=jZone.getBoundingClientRect();joy.ox=r.left+60;joy.oy=r.top+60;
+},{passive:false});
+jZone.addEventListener('touchmove',e=>{
+  e.preventDefault();if(!joy.active) return;
+  const t=e.changedTouches[0];
+  let dx=t.clientX-joy.ox,dy=t.clientY-joy.oy;
+  const d=Math.sqrt(dx*dx+dy*dy);
+  if(d>MAX_JOY){dx=dx/d*MAX_JOY;dy=dy/d*MAX_JOY;}
+  joy.dx=dx/MAX_JOY;joy.dy=dy/MAX_JOY;
+  jStick.style.transform=`translate(${dx}px,${dy}px)`;
+},{passive:false});
+['touchend','touchcancel'].forEach(ev=>{
+  jZone.addEventListener(ev,e=>{
+    e.preventDefault();joy.active=false;joy.dx=0;joy.dy=0;jStick.style.transform='';
+  },{passive:false});
+});
+document.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(e.key==='Escape'||k==='p') togglePause();
+  if(e.key==='ArrowLeft' ||k==='a') joy.dx=-1;
+  if(e.key==='ArrowRight'||k==='d') joy.dx=1;
+  if(e.key==='ArrowUp'   ||k==='w') joy.dy=-1;
+  if(e.key==='ArrowDown' ||k==='s') joy.dy=1;
+});
+document.addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  if(e.key==='ArrowLeft' ||k==='a') joy.dx=0;
+  if(e.key==='ArrowRight'||k==='d') joy.dx=0;
+  if(e.key==='ArrowUp'   ||k==='w') joy.dy=0;
+  if(e.key==='ArrowDown' ||k==='s') joy.dy=0;
+});
+document.getElementById('pauseBtn').addEventListener('click',togglePause);
+document.getElementById('pauseBtn').addEventListener('touchend',e=>{e.preventDefault();togglePause();},{passive:false});
+document.getElementById('resumeBtn').addEventListener('click',()=>{
+  paused=false;document.getElementById('pauseScreen').style.display='none';document.getElementById('pauseBtn').textContent='⏸';
+});
+document.getElementById('resumeBtn').addEventListener('touchend',e=>{
+  e.preventDefault();paused=false;document.getElementById('pauseScreen').style.display='none';document.getElementById('pauseBtn').textContent='⏸';
+},{passive:false});
+document.getElementById('quitBtn').addEventListener('click',()=>{
+  paused=false;G=null;
+  document.getElementById('pauseScreen').style.display='none';
+  document.getElementById('pauseBtn').textContent='⏸';
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('overlay').innerHTML=`
+    <h2>🟢 Slime Survivor</h2>
+    <p>Move with the joystick or WASD. Weapons orbit you. Collect ❤️ hearts. Level up!</p>
+    <button class="btn" id="startBtn2">▶ Start Game</button>
+    <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn2">🏆 Leaderboard</button>`;
+  document.getElementById('startBtn2').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
+  document.getElementById('lbBtn2').addEventListener('click',()=>{
+    document.getElementById('overlay').style.display='none';
+    showLeaderboard(null);
+  });
+});
+document.getElementById('startBtn').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
+document.getElementById('startBtn').addEventListener('touchend',e=>{e.preventDefault();document.getElementById('overlay').style.display='none';newGame();},{passive:false});
+
+document.getElementById('lbBtn').addEventListener('click',()=>{
+  document.getElementById('overlay').style.display='none';
+  showLeaderboard(null);
+});
+document.getElementById('lbBtn').addEventListener('touchend',e=>{
+  e.preventDefault();
+  document.getElementById('overlay').style.display='none';
+  showLeaderboard(null);
+},{passive:false});
+
+document.getElementById('lbCloseBtn').addEventListener('click',()=>{
+  document.getElementById('leaderboardScreen').style.display='none';
+  document.getElementById('overlay').style.display='flex';
+});
+document.getElementById('lbCloseBtn').addEventListener('touchend',e=>{
+  e.preventDefault();
+  document.getElementById('leaderboardScreen').style.display='none';
+  document.getElementById('overlay').style.display='flex';
+},{passive:false});
+
+document.getElementById('clearLbBtn').addEventListener('click',()=>{
+  if(confirm('Clear all scores?')){
+    localStorage.removeItem(LB_KEY);
+    renderLeaderboard(null);
+  }
+});
+document.getElementById('clearLbBtn').addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(confirm('Clear all scores?')){
+    localStorage.removeItem(LB_KEY);
+    renderLeaderboard(null);
+  }
+},{passive:false});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
