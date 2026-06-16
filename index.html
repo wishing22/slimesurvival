@@ -2172,24 +2172,26 @@ document.getElementById('lbCloseBtn').addEventListener('touchend',e=>{
   document.getElementById('lbBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';showLeaderboard(null);});
 },{passive:false});
 
-// ---- ADMIN: triple-tap the trophy title to reveal clear button ----
-let lbTapCount=0, lbTapTimer=null;
-const lbTitle=document.getElementById('lbTitle');
+// ---- ADMIN: tap the hidden corner zone 3 times to reveal clear button ----
+// Invisible 40x40 tap zone in bottom-left corner of leaderboard screen
+const adminZone=document.createElement('div');
+adminZone.style.cssText='position:absolute;bottom:0;left:0;width:44px;height:44px;cursor:default;-webkit-tap-highlight-color:transparent;';
+document.getElementById('leaderboardScreen').appendChild(adminZone);
 
-function handleLbTap(){
+let lbTapCount=0, lbTapTimer=null;
+function handleAdminTap(){
   lbTapCount++;
   clearTimeout(lbTapTimer);
   if(lbTapCount>=3){
     lbTapCount=0;
     document.getElementById('adminClearBtn').style.display='block';
-    lbTitle.textContent='🏆 Leaderboard 🔑';
+    document.getElementById('lbTitle').textContent='🏆 Leaderboard 🔑';
   } else {
-    lbTapTimer=setTimeout(()=>{lbTapCount=0;},600);
+    lbTapTimer=setTimeout(()=>{lbTapCount=0;},700);
   }
 }
-
-lbTitle.addEventListener('click',handleLbTap);
-lbTitle.addEventListener('touchend',e=>{e.preventDefault();handleLbTap();},{passive:false});
+adminZone.addEventListener('click',handleAdminTap);
+adminZone.addEventListener('touchend',e=>{e.preventDefault();handleAdminTap();},{passive:false});
 
 document.getElementById('adminClearBtn').addEventListener('click',async()=>{
   const pw=prompt('Enter admin password:');
@@ -2199,7 +2201,7 @@ document.getElementById('adminClearBtn').addEventListener('click',async()=>{
   const ok=await clearScores(pw);
   if(ok){
     document.getElementById('adminClearBtn').style.display='none';
-    lbTitle.textContent='🏆 Leaderboard';
+    document.getElementById('lbTitle').textContent='🏆 Leaderboard';
     const scores=await fetchScores();
     renderLeaderboard(scores,null);
   } else {
