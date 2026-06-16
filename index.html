@@ -1280,7 +1280,8 @@ async function fetchScores(){
 }
 
 async function clearScores(password){
-  if(password !== 'slimeadmin2026') return false;
+  console.log('Password entered:', JSON.stringify(password));
+  if(password.trim() !== 'slimeadmin2026') return false;
   try{
     const res=await fetch(SB_URL+'/scores?id=gt.0',{
       method:'DELETE',
