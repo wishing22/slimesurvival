@@ -2170,16 +2170,26 @@ document.getElementById('lbCloseBtn').addEventListener('touchend',e=>{
     <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn3">🏆 Leaderboard</button>`;
   document.getElementById('startBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
   document.getElementById('lbBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';showLeaderboard(null);});
-},{passive:false});// ---- ADMIN: long-press trophy title 2s to reveal clear button ----
-let lbTitleHoldTimer=null;
+},{passive:false});
+
+// ---- ADMIN: triple-tap the trophy title to reveal clear button ----
+let lbTapCount=0, lbTapTimer=null;
 const lbTitle=document.getElementById('lbTitle');
-function startLbHold(){lbTitleHoldTimer=setTimeout(()=>{document.getElementById('adminClearBtn').style.display='block';lbTitle.textContent='🏆 Leaderboard 🔑';},2000);}
-function cancelLbHold(){clearTimeout(lbTitleHoldTimer);}
-lbTitle.addEventListener('mousedown',startLbHold);
-lbTitle.addEventListener('mouseup',cancelLbHold);
-lbTitle.addEventListener('mouseleave',cancelLbHold);
-lbTitle.addEventListener('touchstart',e=>{e.preventDefault();startLbHold();},{passive:false});
-lbTitle.addEventListener('touchend',e=>{e.preventDefault();cancelLbHold();},{passive:false});
+
+function handleLbTap(){
+  lbTapCount++;
+  clearTimeout(lbTapTimer);
+  if(lbTapCount>=3){
+    lbTapCount=0;
+    document.getElementById('adminClearBtn').style.display='block';
+    lbTitle.textContent='🏆 Leaderboard 🔑';
+  } else {
+    lbTapTimer=setTimeout(()=>{lbTapCount=0;},600);
+  }
+}
+
+lbTitle.addEventListener('click',handleLbTap);
+lbTitle.addEventListener('touchend',e=>{e.preventDefault();handleLbTap();},{passive:false});
 
 document.getElementById('adminClearBtn').addEventListener('click',async()=>{
   const pw=prompt('Enter admin password:');
