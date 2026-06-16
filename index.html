@@ -95,7 +95,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
       <tbody id="lbBody"></tbody>
     </table>
     <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbCloseBtn">← Back</button>
-    <button class="btn" id="adminClearBtn" style="display:none;background:#3a0808;border:1px solid #7a1a1a;font-size:13px;margin-top:6px;">🗑 Clear All Scores</button>
+    <button class="btn" id="adminClearBtn" style="background:#5a0808;border:1px solid #aa2020;font-size:13px;margin-top:6px;">🗑 Clear Scores</button>
   </div>
   <div id="pauseScreen">
     <h2>⏸ Paused</h2>
@@ -2172,26 +2172,7 @@ document.getElementById('lbCloseBtn').addEventListener('touchend',e=>{
   document.getElementById('lbBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';showLeaderboard(null);});
 },{passive:false});
 
-// ---- ADMIN: tap the hidden corner zone 3 times to reveal clear button ----
-// Invisible 40x40 tap zone in bottom-left corner of leaderboard screen
-const adminZone=document.createElement('div');
-adminZone.style.cssText='position:absolute;bottom:0;left:0;width:44px;height:44px;cursor:default;-webkit-tap-highlight-color:transparent;';
-document.getElementById('leaderboardScreen').appendChild(adminZone);
 
-let lbTapCount=0, lbTapTimer=null;
-function handleAdminTap(){
-  lbTapCount++;
-  clearTimeout(lbTapTimer);
-  if(lbTapCount>=3){
-    lbTapCount=0;
-    document.getElementById('adminClearBtn').style.display='block';
-    document.getElementById('lbTitle').textContent='🏆 Leaderboard 🔑';
-  } else {
-    lbTapTimer=setTimeout(()=>{lbTapCount=0;},700);
-  }
-}
-adminZone.addEventListener('click',handleAdminTap);
-adminZone.addEventListener('touchend',e=>{e.preventDefault();handleAdminTap();},{passive:false});
 
 document.getElementById('adminClearBtn').addEventListener('click',async()=>{
   const pw=prompt('Enter admin password:');
