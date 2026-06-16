@@ -100,7 +100,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
     <h2>⏸ Paused</h2>
     <p>Take a breather, slime.</p>
     <button class="btn" id="resumeBtn">▶ Resume</button>
-    <button class="btn" style="background:#2a1a1a;border:1.5px solid #7a3030;" id="quitBtn">✕ Quit to Menu</button>
+    <button class="btn" style="background:#2a1a1a;border:1.5px solid #7a3030;" id="quitBtn">💾 Save &amp; Quit</button>
   </div>
   <div id="upgradeScreen"></div>
 </div>
@@ -2103,21 +2103,19 @@ document.getElementById('resumeBtn').addEventListener('touchend',e=>{
   e.preventDefault();paused=false;document.getElementById('pauseScreen').style.display='none';document.getElementById('pauseBtn').textContent='⏸';
 },{passive:false});
 document.getElementById('quitBtn').addEventListener('click',()=>{
-  paused=false;G=null;
+  paused=false;
   document.getElementById('pauseScreen').style.display='none';
   document.getElementById('pauseBtn').textContent='⏸';
-  document.getElementById('overlay').style.display='flex';
-  document.getElementById('overlay').innerHTML=`
-    <h2>🟢 Slime Survivor</h2>
-    <p>Move with the joystick or WASD. Weapons orbit you. Collect ❤️ hearts. Level up!</p>
-    <button class="btn" id="startBtn2">▶ Start Game</button>
-    <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn2">🏆 Leaderboard</button>`;
-  document.getElementById('startBtn2').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
-  document.getElementById('lbBtn2').addEventListener('click',()=>{
-    document.getElementById('overlay').style.display='none';
-    showLeaderboard(null);
-  });
+  // endGame handles name entry, score saving, then leaderboard
+  endGame();
 });
+document.getElementById('quitBtn').addEventListener('touchend',e=>{
+  e.preventDefault();
+  paused=false;
+  document.getElementById('pauseScreen').style.display='none';
+  document.getElementById('pauseBtn').textContent='⏸';
+  endGame();
+},{passive:false});
 document.getElementById('startBtn').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
 document.getElementById('startBtn').addEventListener('touchend',e=>{e.preventDefault();document.getElementById('overlay').style.display='none';newGame();},{passive:false});
 
@@ -2133,12 +2131,31 @@ document.getElementById('lbBtn').addEventListener('touchend',e=>{
 
 document.getElementById('lbCloseBtn').addEventListener('click',()=>{
   document.getElementById('leaderboardScreen').style.display='none';
+  // Reset game state cleanly and show main menu
+  G=null;
   document.getElementById('overlay').style.display='flex';
+  document.getElementById('overlay').innerHTML=`
+    <h2>🟢 Slime Survivor</h2>
+    <p>Move with the joystick or WASD. Weapons orbit you. Collect ❤️ hearts. Level up!</p>
+    <button class="btn green" id="startBtn2">▶ Play Again</button>
+    <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn2">🏆 Leaderboard</button>`;
+  document.getElementById('startBtn2').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
+  document.getElementById('startBtn2').addEventListener('touchend',e=>{e.preventDefault();document.getElementById('overlay').style.display='none';newGame();},{passive:false});
+  document.getElementById('lbBtn2').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';showLeaderboard(null);});
+  document.getElementById('lbBtn2').addEventListener('touchend',e=>{e.preventDefault();document.getElementById('overlay').style.display='none';showLeaderboard(null);},{passive:false});
 });
 document.getElementById('lbCloseBtn').addEventListener('touchend',e=>{
   e.preventDefault();
   document.getElementById('leaderboardScreen').style.display='none';
+  G=null;
   document.getElementById('overlay').style.display='flex';
+  document.getElementById('overlay').innerHTML=`
+    <h2>🟢 Slime Survivor</h2>
+    <p>Move with the joystick or WASD. Weapons orbit you. Collect ❤️ hearts. Level up!</p>
+    <button class="btn green" id="startBtn3">▶ Play Again</button>
+    <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn3">🏆 Leaderboard</button>`;
+  document.getElementById('startBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';newGame();});
+  document.getElementById('lbBtn3').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';showLeaderboard(null);});
 },{passive:false});
 
 
