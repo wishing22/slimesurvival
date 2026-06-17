@@ -151,6 +151,10 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
     <h2>⏸ Paused</h2>
     <p>Take a breather, slime.</p>
     <button class="btn" id="resumeBtn">▶ Resume</button>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+      <span style="color:#aaa;font-size:13px;">Upgrade mode:</span>
+      <button id="upgradeModeBtn" style="background:#1a1a3a;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:13px;padding:8px 14px;cursor:pointer;pointer-events:all;min-width:130px;">⚡ Auto popup</button>
+    </div>
     <button class="btn" style="background:#2a1a1a;border:1.5px solid #7a3030;" id="quitBtn">💾 Save &amp; Quit</button>
   </div>
   <div id="upgradeScreen"></div>
@@ -175,6 +179,7 @@ const UPGRADES_STATIC=[
   {id:'lightning',icon:'⚡', name:'Lightning',     desc:'Zaps 1 nearby enemy every 2s',             type:'skill', stype:'lightning'},
   {id:'iceRing',  icon:'❄️', name:'Ice Ring',      desc:'8 weak shards outward every 3s',           type:'skill', stype:'iceRing'},
   {id:'wind',     icon:'💨', name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',  type:'skill', stype:'wind'},
+  {id:'swordStorm',icon:'🗡️✨',name:'Sword Storm', desc:'Launches 2 homing swords at enemies every 2.5s', type:'skill', stype:'swordStorm'},
   {id:'speed',    icon:'👟', name:'Move Faster',   desc:'Movement speed +20%',                      type:'stat',  stat:'moveSpeed',amt:0.20},
   {id:'spin',     icon:'🌀', name:'Faster Spin',   desc:'Weapons spin 30% faster',                  type:'stat',  stat:'spinSpeed',amt:0.30},
   {id:'hp',       icon:'❤️', name:'Max HP +40',    desc:'Gain 40 max HP and heal 40',               type:'stat',  stat:'hp',       amt:40},
@@ -247,9 +252,19 @@ const SKILL_UPGRADES={
     {name:'Tornado Lv 8',      icon:'🌪️',  desc:'Tornadoes leave electric trails that zap enemies',         minWave:18},
     {name:'Tornado Lv 9',      icon:'🌪️',  desc:'Superstorm: 5 giant tornadoes, electrified, screen-wide', minWave:25},
   ],
+  swordStorm:[
+    {name:'Sword Storm Lv 2',       icon:'🗡️✨', desc:'+2 swords per volley (4 total) · +30 dmg each'},
+    {name:'Sword Storm Lv 3',       icon:'🗡️✨', desc:'+2 more swords (6) · swords pierce through enemies'},
+    {name:'Sword Storm Lv 4',       icon:'🗡️✨', desc:'Swords ricochet to 1 nearby enemy on hit'},
+    {name:'⚔️ BLADE TEMPEST — Lv 5',icon:'⚔️🌪️', desc:'EVOLVES into Blade Tempest! Swords orbit before launching'},
+    {name:'Blade Tempest Lv 6',     icon:'⚔️🌪️', desc:'Orbit ring launches in waves · swords trail energy'},
+    {name:'Blade Tempest Lv 7',     icon:'⚔️🌪️', desc:'+60 dmg · 10 swords per volley · faster orbit',    minWave:12},
+    {name:'Blade Tempest Lv 8',     icon:'⚔️🌪️', desc:'Swords explode on impact dealing splash dmg',       minWave:18},
+    {name:'Blade Tempest Lv 9',     icon:'⚔️🌪️', desc:'INFINITE TEMPEST: constant spinning blade storm around you', minWave:25},
+  ],
 };
 
-let G=null, paused=false, lastTs=0;
+let G=null, paused=false, lastTs=0, upgradeMode='auto'; // 'auto' = pause+show immediately, 'save' = queue for later
 const joy={active:false,dx:0,dy:0,ox:0,oy:0};
 const MAX_JOY=36;
 
@@ -261,7 +276,7 @@ function newGame(){
     invTimer:0,wobble:0,eyeDir:0,
     weapons:[{type:'sword',masterAngle:0,hitCD:{}}],
     skills:[],
-    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0},
+    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0},
     spinSpeed:1.0,damageMult:1.0,magnetRange:1.0,
     skillDmgMult:1.0,  // separate multiplier for skill damage only
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
@@ -276,7 +291,7 @@ function newGame(){
     spawnTimer:0,spawnRate:110,
     heartSpawnTimer:0,heartSpawnRate:18,
     kills:0,score:0,elapsed:0,
-    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0},
+    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0},
     running:true,upgrading:false, shakeTimer:0, flashTimer:0,
     passiveXpTimer:0, pendingUpgrades:0, pendingChoices:[],
   };
@@ -288,7 +303,8 @@ function newGame(){
 
 function loop(ts){
   const dt=Math.min((ts-lastTs)/16.667,4); lastTs=ts;
-  if(G&&G.running&&!paused) update(dt);
+  const upgradeFrozen=document.getElementById('upgradeScreen').style.display==='flex';
+  if(G&&G.running&&!paused&&!upgradeFrozen) update(dt);
   render();
   requestAnimationFrame(loop);
 }
@@ -369,8 +385,8 @@ function update(dt){
   function getCD(sk){
     const lv=p.skillLevels[sk]||0;
     const evolved=lv>=5;
-    const base={fireball:3,lightning:2,iceRing:3,wind:4}[sk];
-    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0}[sk];
+    const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5}[sk];
+    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8}[sk];
     const b=evolved?evolvedBase:base;
     const lvFactor=Math.min(lv,9);
     const raw=Math.max(0.3, b/(1+lvFactor*0.18));
@@ -383,6 +399,7 @@ function update(dt){
       if(sk==='lightning') fireLightning();
       if(sk==='iceRing') fireIceRing();
       if(sk==='wind') fireWind();
+      if(sk==='swordStorm') fireSwordStorm();
     }
   });
 
@@ -483,9 +500,48 @@ function update(dt){
         return false;
       }
     }
-    return true;
+
   });
   newProjs.forEach(p=>G.projs.push(p));
+
+  // sword projectiles — own filter block with length-aware hitbox
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='swordProj') return true;
+    pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
+    pr.trail=pr.trail||[];
+    pr.trail.push({x:pr.x,y:pr.y});
+    if(pr.trail.length>8) pr.trail.shift();
+    if(pr.life<=0) return false;
+    pr.angle=Math.atan2(pr.vy,pr.vx);
+    // homing — steer toward target
+    if(pr.target&&pr.target.hp>0){
+      const d=norm({x:pr.target.x-pr.x,y:pr.target.y-pr.y});
+      pr.vx=lerp(pr.vx,d.x*7,0.12);
+      pr.vy=lerp(pr.vy,d.y*7,0.12);
+    } else if(G.enemies.length>0){
+      pr.target=G.enemies.reduce((a,b)=>dist(a,{x:pr.x,y:pr.y})<dist(b,{x:pr.x,y:pr.y})?a:b);
+    }
+    // hit detection — use sword length as effective hit radius
+    const hitR=pr.r*2.2; // sword is ~2x longer than it is wide
+    let hit=false;
+    for(let i=0;i<enemies.length;i++){
+      const e=enemies[i];
+      if(dist(pr,e)<hitR+e.r){
+        hitEnemy(e,Math.round(pr.dmg));
+        if(pr.explode){
+          enemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<70)hitEnemy(ne,Math.round(pr.dmg*0.5));});
+          spawnBurst(pr.x,pr.y,'#c8a040',12);
+        }
+        if(pr.ricochet&&pr.pierceCount>0){
+          const next=enemies.filter(ne=>ne!==e).sort((a,b)=>dist(a,pr)-dist(b,pr))[0];
+          if(next){pr.target=next;pr.pierceCount--;hit=false;break;}
+        }
+        if(pr.pierce&&pr.pierceCount>0){pr.pierceCount--;break;}
+        return false;
+      }
+    }
+    return true;
+  });
 
   // wind pulses — AOE push ring
   G.projs=G.projs.filter(pr=>{
@@ -523,7 +579,24 @@ function update(dt){
     return true;
   });
 
-  // blizzard aura — persistent frost zone around player
+  // blade tempest aura (Infinite Tempest lv9)
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='bladeTempestAura') return true;
+    pr.spinAngle+=dt*0.12;
+    const stLv=G.p.skillLevels.swordStorm||0;
+    if(stLv<9){ return false; }
+    pr.tickTimer-=dt;
+    if(pr.tickTimer<=0){
+      pr.tickTimer=pr.tickRate;
+      enemies.forEach(e=>{
+        if(dist(e,G.p)<pr.r+e.r){
+          hitEnemy(e,Math.round(pr.dmgPerTick));
+          spawnBurst(e.x,e.y,'#c8a040',3);
+        }
+      });
+    }
+    return true;
+  });
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='blizzardAura') return true;
     pr.spinAngle+=dt*0.04;
@@ -1011,6 +1084,86 @@ function fireWind(){
   }
 }
 
+function fireSwordStorm(){
+  const p=G.p;
+  const lv=p.skillLevels.swordStorm||0;
+  const evolved=lv>=5; // blade tempest tier
+
+  if(evolved){
+    // ---- BLADE TEMPEST ----
+    const elv=lv-5; // 0-4
+    const mega=lv>=9; // Infinite Tempest
+
+    if(mega){
+      // Infinite Tempest — persistent spinning blade zone around player
+      G.projs=G.projs.filter(pr=>pr.type!=='bladeTempestAura');
+      G.projs.push({
+        type:'bladeTempestAura',
+        r:120+elv*20,
+        dmgPerTick:Math.round(200*p.damageMult*(p.skillDmgMult||1)),
+        tickTimer:0, tickRate:8,
+        spinAngle:0, bladesCount:12,
+        life:999 // refreshed each cast
+      });
+      // Also fire a volley outward
+    }
+
+    const count=mega?16:8+elv*2;
+    const dmg=Math.round((500+elv*200)*p.damageMult*(p.skillDmgMult||1)); // lv5=500, lv9=1300
+    const pierce=lv>=6;
+    const explode=lv>=8;
+
+    if(G.enemies.length===0) return;
+    // Launch swords toward nearest enemies, spread out
+    const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
+    for(let i=0;i<count;i++){
+      const target=sorted[i%Math.min(sorted.length,count)];
+      const angle=(Math.PI*2/count)*i;
+      // Orbit briefly then home — launch from a spinning ring first
+      const orbitR=30+elv*5;
+      const sx=p.x+Math.cos(angle)*orbitR;
+      const sy=p.y+Math.sin(angle)*orbitR;
+      const d=norm({x:target.x-sx,y:target.y-sy});
+      G.projs.push({
+        x:sx, y:sy,
+        vx:d.x*6, vy:d.y*6,
+        r:8+elv*1.5, type:'swordProj',
+        dmg, target, pierce, explode,
+        pierceCount:pierce?3:0,
+        life:200, angle,
+        trail:[]
+      });
+    }
+
+  } else {
+    // ---- SWORD STORM (base) ----
+    if(G.enemies.length===0) return;
+    const count=2+lv*2;         // lv0=2, lv1=4, lv2=6, lv3=8, lv4=10
+    const dmg=Math.round((120+lv*60)*p.damageMult*(p.skillDmgMult||1)); // lv0=120, lv4=360
+    const pierce=lv>=2;
+    const ricochet=lv>=3;
+    const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
+    for(let i=0;i<count;i++){
+      const target=sorted[i%Math.min(sorted.length,count)];
+      const spread=rnd(-0.25,0.25);
+      const d=norm({x:target.x-p.x,y:target.y-p.y});
+      const spd=5.5+lv*0.3;
+      const ca=Math.cos(spread), sa=Math.sin(spread);
+      G.projs.push({
+        x:p.x, y:p.y,
+        vx:(d.x*ca-d.y*sa)*spd,
+        vy:(d.x*sa+d.y*ca)*spd,
+        r:7+lv*0.8, type:'swordProj',
+        dmg, target, pierce,
+        pierceCount:pierce?2:0,
+        ricochet, explode:false,
+        life:180, angle:Math.atan2(d.y,d.x),
+        trail:[]
+      });
+    }
+  }
+}
+
 function spawnWindParticles(x,y,r){
   for(let i=0;i<20;i++){
     const a=rnd(0,Math.PI*2), d=rnd(0.3,1);
@@ -1167,7 +1320,6 @@ function addXp(v){
     const inc = p.level>70 ? 1500 : p.level>40 ? 500 : p.level>15 ? 120 : 20;
     p.xpNext=p.xpNext+inc;
     p.level++;
-    // Generate choices NOW and lock them — no rerolling allowed
     const pool=buildUpgradePool();
     const picks=pool.sort(()=>Math.random()-0.5).slice(0,3);
     G.pendingChoices=(G.pendingChoices||[]);
@@ -1175,6 +1327,10 @@ function addXp(v){
     G.pendingUpgrades=(G.pendingUpgrades||0)+1;
   }
   updateUpgradeBtn();
+  // In auto mode, open immediately if not already open
+  if(upgradeMode==='auto' && (G.pendingUpgrades||0)>0){
+    showUpgrades();
+  }
 }
 
 function updateUpgradeBtn(){
@@ -1282,7 +1438,8 @@ function showUpgrades(){
   skip.textContent='✕ Decide later';
   skip.addEventListener('click',()=>{el.style.display='none';});
   skip.addEventListener('touchend',e=>{e.preventDefault();el.style.display='none';},{passive:false});
-  el.appendChild(skip);
+  // Only show Decide Later in save mode — in auto mode game is frozen so must pick
+  if(upgradeMode==='save') el.appendChild(skip);
 }
 
 function applyUpgrade(u){
@@ -1353,7 +1510,7 @@ function applyUpgrade(u){
       skip.textContent='✕ Decide later';
       skip.addEventListener('click',()=>{el.style.display='none';});
       skip.addEventListener('touchend',e=>{e.preventDefault();el.style.display='none';},{passive:false});
-      el.appendChild(skip);
+      if(upgradeMode==='save') el.appendChild(skip);
       return; // stay open
     }
   }
@@ -1856,6 +2013,97 @@ function drawProj(pr){
     ctx.beginPath();ctx.arc(pr.cx,pr.cy,Math.max(0,pr.radius-4),0,Math.PI*2);ctx.stroke();
     ctx.restore(); return;
   }
+  // blade tempest aura (Infinite Tempest lv9)
+  if(pr.type==='bladeTempestAura'){
+    const pp=G.p;
+    ctx.save();
+    ctx.globalAlpha=0.35;
+    const grad=ctx.createRadialGradient(pp.x,pp.y,pr.r*0.5,pp.x,pp.y,pr.r);
+    grad.addColorStop(0,'rgba(200,160,40,0)');
+    grad.addColorStop(1,'rgba(200,160,40,0.25)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();ctx.arc(pp.x,pp.y,pr.r,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=0.7;
+    for(let i=0;i<(pr.bladesCount||12);i++){
+      const a=(pr.spinAngle||0)+(Math.PI*2/(pr.bladesCount||12))*i;
+      const sx=pp.x+Math.cos(a)*pr.r;
+      const sy=pp.y+Math.sin(a)*pr.r;
+      ctx.save();ctx.translate(sx,sy);ctx.rotate(a+Math.PI/4);
+      ctx.fillStyle='#FFD700';ctx.fillRect(-2,-10,4,20);
+      ctx.fillStyle='#c8a040';ctx.fillRect(-5,-2,10,4);
+      ctx.restore();
+    }
+    ctx.restore(); return;
+  }
+
+  // sword projectile
+  if(pr.type==='swordProj'){
+    ctx.save();
+    // smooth fading wake trail — drawn before the sword
+    if(pr.trail&&pr.trail.length>1){
+      for(let i=1;i<pr.trail.length;i++){
+        const t=i/pr.trail.length;
+        ctx.globalAlpha=t*0.5;
+        ctx.strokeStyle='rgba(255,230,100,0.8)';
+        ctx.lineWidth=3*t;
+        ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(pr.trail[i-1].x,pr.trail[i-1].y);
+        ctx.lineTo(pr.trail[i].x,pr.trail[i].y);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha=1;
+    ctx.translate(pr.x,pr.y);
+    // rotate so the sword tip points in the direction of travel
+    ctx.rotate((pr.angle||0)-Math.PI/2);
+
+    // fixed size — 28px long, clearly visible
+    const L=28, W=5;
+    // blade body
+    ctx.fillStyle='#d8d8e8';
+    ctx.beginPath();
+    ctx.moveTo(-W*0.5,-L*0.55);
+    ctx.lineTo(W*0.5,-L*0.55);
+    ctx.lineTo(W*0.3, L*0.1);
+    ctx.lineTo(-W*0.3,L*0.1);
+    ctx.closePath();
+    ctx.fill();
+    // blade tip
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(-W*0.45,-L*0.55);
+    ctx.lineTo(W*0.45,-L*0.55);
+    ctx.lineTo(0,-L);
+    ctx.closePath();
+    ctx.fill();
+    // fuller (centre groove shine)
+    ctx.strokeStyle='rgba(200,220,255,0.5)';
+    ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(0,-L*0.5);ctx.lineTo(0,L*0.08);ctx.stroke();
+    // crossguard
+    ctx.fillStyle='#FFD700';
+    ctx.beginPath();
+    ctx.moveTo(-L*0.32,L*0.08);
+    ctx.lineTo(L*0.32,L*0.08);
+    ctx.lineTo(L*0.28,L*0.18);
+    ctx.lineTo(-L*0.28,L*0.18);
+    ctx.closePath();
+    ctx.fill();
+    // handle
+    ctx.fillStyle='#7a3a10';
+    ctx.fillRect(-W*0.35,L*0.18,W*0.7,L*0.28);
+    // pommel
+    ctx.fillStyle='#cc9933';
+    ctx.beginPath();ctx.arc(0,L*0.5,W*0.55,0,Math.PI*2);ctx.fill();
+    // gold glow on blade
+    ctx.globalAlpha=0.25;
+    ctx.fillStyle='rgba(255,220,80,0.6)';
+    ctx.beginPath();ctx.ellipse(0,-L*0.3,W*0.8,L*0.5,0,0,Math.PI*2);ctx.fill();
+
+    ctx.restore(); return;
+  }
+
   if(pr.type==='stormCloud'){
     ctx.save();
     const fade=Math.min(1, pr.life/30);
@@ -2222,6 +2470,29 @@ document.addEventListener('keyup',e=>{
   if(e.key==='ArrowUp'   ||k==='w') joy.dy=0;
   if(e.key==='ArrowDown' ||k==='s') joy.dy=0;
 });
+function updateUpgradeModeBtn(){
+  const btn=document.getElementById('upgradeModeBtn');
+  if(!btn) return;
+  if(upgradeMode==='auto'){
+    btn.textContent='⚡ Auto popup';
+    btn.style.borderColor='#534AB7';
+    btn.style.color='#AFA9EC';
+  } else {
+    btn.textContent='💾 Save for later';
+    btn.style.borderColor='#1D9E75';
+    btn.style.color='#5DCAA5';
+  }
+}
+
+document.getElementById('upgradeModeBtn').addEventListener('click',()=>{
+  upgradeMode=upgradeMode==='auto'?'save':'auto';
+  updateUpgradeModeBtn();
+});
+document.getElementById('upgradeModeBtn').addEventListener('touchend',e=>{
+  e.preventDefault();
+  upgradeMode=upgradeMode==='auto'?'save':'auto';
+  updateUpgradeModeBtn();
+},{passive:false});
 document.getElementById('upgradeBtn').addEventListener('click',()=>showUpgrades());
 document.getElementById('upgradeBtn').addEventListener('touchend',e=>{e.preventDefault();showUpgrades();},{passive:false});
 document.getElementById('pauseBtn').addEventListener('click',togglePause);
