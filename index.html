@@ -2,59 +2,104 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0f1e">
 <title>Slime Survivor</title>
 <style>
-html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:hidden;font-family:sans-serif;}
-#wrap{position:relative;width:100vw;height:100vh;}
+*{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:hidden;font-family:sans-serif;touch-action:none;}
+#wrap{position:relative;width:100vw;height:100%;height:100dvh;}
 #gameCanvas{display:block;width:100%;height:100%;}
 #ui{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;}
-#topBar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(0,0,0,0.5);}
+
+/* Safe area insets for notched iPhones/iPads */
+#topBar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:max(10px,env(safe-area-inset-top)) 16px 10px 16px;
+  padding-left:max(16px,env(safe-area-inset-left));
+  padding-right:max(16px,env(safe-area-inset-right));
+  background:rgba(0,0,0,0.5);
+}
 #topBar span{color:#fff;font-size:14px;font-weight:500;}
-#pauseBtn{pointer-events:all;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);border-radius:10px;color:#fff;font-size:18px;width:40px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+#pauseBtn{pointer-events:all;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);border-radius:10px;color:#fff;font-size:18px;min-width:44px;height:44px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 #pauseBtn:active{transform:scale(0.95);}
 #waveLabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#FFD700;font-size:24px;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,0.9);pointer-events:none;opacity:0;transition:opacity 0.5s;white-space:nowrap;}
 #xpBar{position:absolute;bottom:0;left:0;right:0;height:6px;background:rgba(255,255,255,0.12);}
 #xpFill{height:100%;background:#7F77DD;width:0%;transition:width 0.15s;}
-#hpArea{position:absolute;bottom:14px;right:16px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+
+#hpArea{
+  position:absolute;
+  bottom:max(14px,env(safe-area-inset-bottom));
+  right:max(16px,env(safe-area-inset-right));
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px;
+}
 #hpLabel{color:#fff;font-size:12px;}
 #hpTrack{width:100px;height:9px;background:rgba(255,255,255,0.15);border-radius:5px;overflow:hidden;}
 #hpFill{height:100%;background:#1D9E75;border-radius:5px;transition:width 0.15s,background 0.3s;}
 #regenIcon{font-size:11px;color:#5DCAA5;opacity:0;transition:opacity 0.3s;text-align:right;}
-#joystickZone{position:absolute;bottom:24px;left:20px;width:120px;height:120px;pointer-events:all;}
-#joystickBase{position:absolute;width:120px;height:120px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.18);border-radius:50%;}
-#joystickStick{position:absolute;width:48px;height:48px;background:rgba(255,255,255,0.32);border-radius:50%;top:36px;left:36px;}
-#overlay{position:absolute;inset:0;background:rgba(8,8,20,0.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
-#overlay h2{color:#FFD700;font-size:28px;font-weight:600;}
+
+#joystickZone{
+  position:absolute;
+  bottom:max(24px,env(safe-area-inset-bottom));
+  left:max(20px,env(safe-area-inset-left));
+  width:130px;height:130px;pointer-events:all;
+}
+#joystickBase{position:absolute;width:130px;height:130px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.18);border-radius:50%;}
+#joystickStick{position:absolute;width:52px;height:52px;background:rgba(255,255,255,0.32);border-radius:50%;top:39px;left:39px;}
+
+/* Overlays — scrollable, safe-area padded */
+#overlay{position:absolute;inset:0;background:rgba(8,8,20,0.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;overflow-y:auto;}
+#overlay h2{color:#FFD700;font-size:clamp(22px,6vw,32px);font-weight:600;}
 #overlay p{color:#bbb;font-size:14px;text-align:center;max-width:300px;line-height:1.6;}
-.btn{background:#534AB7;color:#fff;border:none;border-radius:12px;padding:14px 36px;font-size:16px;font-weight:500;cursor:pointer;min-width:200px;}
+
+.btn{background:#534AB7;color:#fff;border:none;border-radius:12px;padding:16px 36px;font-size:16px;font-weight:500;cursor:pointer;min-width:min(200px,70vw);min-height:50px;touch-action:manipulation;}
 .btn:active{transform:scale(0.97);}
 .btn.green{background:#0F6E56;}
-#pauseScreen{position:absolute;inset:0;background:rgba(8,8,20,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+
+#pauseScreen{position:absolute;inset:0;background:rgba(8,8,20,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;}
 #pauseScreen h2{color:#fff;font-size:26px;font-weight:600;}
 #pauseScreen p{color:#999;font-size:13px;text-align:center;max-width:280px;line-height:1.5;}
-#upgradeScreen{position:absolute;inset:0;background:rgba(8,8,20,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;}
-#upgradeScreen h2{color:#FFD700;font-size:20px;font-weight:500;}
-.upgradeCard{background:#141428;border:1.5px solid #534AB7;border-radius:14px;padding:14px 18px;width:100%;max-width:340px;cursor:pointer;display:flex;gap:14px;align-items:center;}
+
+/* Upgrade screen — scrollable on small phones */
+#upgradeScreen{
+  position:absolute;inset:0;
+  background:rgba(8,8,20,0.96);
+  display:none;flex-direction:column;align-items:center;
+  justify-content:flex-start;
+  gap:12px;
+  padding:max(20px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom)) 16px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+#upgradeScreen h2{color:#FFD700;font-size:18px;font-weight:500;margin-top:4px;text-align:center;}
+.upgradeCard{background:#141428;border:1.5px solid #534AB7;border-radius:14px;padding:14px 16px;width:100%;max-width:420px;cursor:pointer;display:flex;gap:12px;align-items:center;touch-action:manipulation;flex-shrink:0;}
 .upgradeCard:active{transform:scale(0.98);border-color:#AFA9EC;}
-.upgradeIcon{font-size:30px;min-width:44px;text-align:center;}
-.upgradeInfo h3{color:#fff;font-size:14px;font-weight:500;margin-bottom:4px;}
+.upgradeIcon{font-size:28px;min-width:40px;text-align:center;}
+.upgradeInfo h3{color:#fff;font-size:14px;font-weight:500;margin-bottom:3px;}
 .upgradeInfo p{color:#999;font-size:12px;line-height:1.4;}
-#leaderboardScreen{position:absolute;inset:0;background:rgba(8,8,20,0.97);display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px 16px 100px 16px;overflow-y:auto;}
-#lbButtons{position:absolute;bottom:0;left:0;right:0;padding:12px 16px;background:rgba(8,8,20,0.97);display:flex;flex-direction:column;align-items:center;gap:8px;}
+
+/* Leaderboard */
+#leaderboardScreen{position:absolute;inset:0;background:rgba(8,8,20,0.97);display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:max(24px,env(safe-area-inset-top)) 16px 110px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#lbButtons{position:absolute;bottom:0;left:0;right:0;padding:max(12px,env(safe-area-inset-bottom)) 16px 12px;background:rgba(8,8,20,0.97);display:flex;flex-direction:column;align-items:center;gap:8px;}
 #leaderboardScreen h2{color:#FFD700;font-size:22px;font-weight:600;margin-bottom:14px;}
-.lbTable{width:100%;max-width:380px;border-collapse:collapse;margin-bottom:18px;}
+.lbTable{width:100%;max-width:420px;border-collapse:collapse;margin-bottom:18px;}
 .lbTable th{color:#777;font-size:11px;text-align:left;padding:4px 8px;border-bottom:1px solid #222;text-transform:uppercase;letter-spacing:.05em;}
-.lbTable td{color:#ddd;font-size:13px;padding:7px 8px;border-bottom:1px solid #1a1a2e;}
+.lbTable td{color:#ddd;font-size:13px;padding:8px 8px;border-bottom:1px solid #1a1a2e;}
 .lbTable tr.gold td{color:#FFD700;font-weight:600;}
 .lbTable tr.silver td{color:#c0c0c0;font-weight:500;}
 .lbTable tr.bronze td{color:#cd7f32;font-weight:500;}
 .lbNew td{background:rgba(127,119,221,0.18)!important;}
-#nameEntryBox{position:absolute;inset:0;background:rgba(8,8,20,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+
+/* Name entry */
+#nameEntryBox{position:absolute;inset:0;background:rgba(8,8,20,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;}
 #nameEntryBox h2{color:#FFD700;font-size:22px;font-weight:600;}
 #nameEntryBox p{color:#aaa;font-size:13px;text-align:center;max-width:280px;line-height:1.5;}
-#nameInput{background:#141428;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:18px;padding:12px 16px;width:220px;text-align:center;outline:none;}
+#nameInput{background:#141428;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:18px;padding:14px 16px;width:min(260px,80vw);text-align:center;outline:none;-webkit-appearance:none;}
 #nameInput::placeholder{color:#444;}
+
 @keyframes upgradePulse{from{box-shadow:0 0 6px #534AB7;}to{box-shadow:0 0 14px #AFA9EC,0 0 4px #fff;}}
 </style>
 </head>
@@ -66,7 +111,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
       <span id="killLabel">💀 0</span>
       <span id="waveInfo">Wave 1</span>
       <span id="timeLabel">0:00</span>
-      <button id="upgradeBtn" style="display:none;background:#534AB7;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;padding:4px 10px;cursor:pointer;position:relative;animation:upgradePulse 0.8s infinite alternate;">⬆️ <span id="upgradePendingCount">0</span></button>
+      <button id="upgradeBtn" style="display:none;background:#534AB7;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;padding:4px 10px;cursor:pointer;pointer-events:all;animation:upgradePulse 0.8s infinite alternate;">⬆️ <span id="upgradePendingCount">0</span></button>
       <button id="pauseBtn">⏸</button>
     </div>
     <div id="waveLabel"></div>
@@ -233,7 +278,7 @@ function newGame(){
     kills:0,score:0,elapsed:0,
     skillCD:{fireball:0,lightning:0,iceRing:0,wind:0},
     running:true,upgrading:false, shakeTimer:0, flashTimer:0,
-    passiveXpTimer:0, pendingUpgrades:0,
+    passiveXpTimer:0, pendingUpgrades:0, pendingChoices:[],
   };
   paused=false;
   document.getElementById('pauseScreen').style.display='none';
@@ -1122,6 +1167,11 @@ function addXp(v){
     const inc = p.level>70 ? 1500 : p.level>40 ? 500 : p.level>15 ? 120 : 20;
     p.xpNext=p.xpNext+inc;
     p.level++;
+    // Generate choices NOW and lock them — no rerolling allowed
+    const pool=buildUpgradePool();
+    const picks=pool.sort(()=>Math.random()-0.5).slice(0,3);
+    G.pendingChoices=(G.pendingChoices||[]);
+    G.pendingChoices.push({level:p.level, picks});
     G.pendingUpgrades=(G.pendingUpgrades||0)+1;
   }
   updateUpgradeBtn();
@@ -1195,14 +1245,16 @@ function showUpgrades(){
   if(document.getElementById('upgradeScreen').style.display==='flex') return;
 
   const p=G.p;
-  const pool=buildUpgradePool();
-  const shuffled=pool.sort(()=>Math.random()-0.5);
-  const picks=shuffled.slice(0,3);
+  const queue=G.pendingChoices||[];
+  if(queue.length===0) return;
+
+  // Always show the SAME choices for this level-up — never regenerate
+  const {level, picks}=queue[0];
   const remaining=Math.max(0,(G.pendingUpgrades||0)-1);
 
   const el=document.getElementById('upgradeScreen');
   el.style.display='flex';
-  el.innerHTML=`<h2>⬆️ Level ${p.level}!${remaining>0?` <span style="color:#aaa;font-size:13px;font-weight:400">(+${remaining} more)</span>`:''}  Choose an upgrade</h2>`;
+  el.innerHTML=`<h2>⬆️ Level ${level}!${remaining>0?` <span style="color:#aaa;font-size:13px;font-weight:400">(+${remaining} more)</span>`:''}  Choose an upgrade</h2>`;
   picks.forEach(u=>{
     const c=document.createElement('div'); c.className='upgradeCard';
     let badge='';
@@ -1224,7 +1276,6 @@ function showUpgrades(){
     c.addEventListener('touchend',e=>{e.preventDefault();pick();},{passive:false});
     el.appendChild(c);
   });
-  // Skip button — close panel without picking, count stays
   const skip=document.createElement('button');
   skip.className='btn';
   skip.style.cssText='background:#1a1a2e;border:1px solid #333;font-size:13px;margin-top:4px;';
@@ -1262,16 +1313,53 @@ function applyUpgrade(u){
     else if(u.htype==='vampirism') p.vampirism=true;
     else if(u.htype==='heartRate') p.heartRateBoost*=0.6;
   }
-  // consume one pending upgrade
+  // consume one pending upgrade — remove the front of the queue
   G.pendingUpgrades=Math.max(0,(G.pendingUpgrades||1)-1);
-  document.getElementById('upgradeScreen').style.display='none';
+  if(G.pendingChoices&&G.pendingChoices.length>0) G.pendingChoices.shift();
   updateUpgradeBtn();
-  // flash button gold if more pending
-  if(G.pendingUpgrades>0){
-    const btn=document.getElementById('upgradeBtn');
-    if(btn){btn.style.background='#FFD700';btn.style.color='#000';}
-    setTimeout(()=>{if(btn){btn.style.background='#534AB7';btn.style.color='#fff';}},400);
+
+  // If more pending, show next immediately — no need to close and reopen
+  if((G.pendingUpgrades||0)>0){
+    const queue=G.pendingChoices||[];
+    if(queue.length>0){
+      const {level,picks}=queue[0];
+      const remaining=Math.max(0,(G.pendingUpgrades||0)-1);
+      const el=document.getElementById('upgradeScreen');
+      el.innerHTML=`<h2>⬆️ Level ${level}!${remaining>0?` <span style="color:#aaa;font-size:13px;font-weight:400">(+${remaining} more)</span>`:''}  Choose an upgrade</h2>`;
+      picks.forEach(u=>{
+        const c=document.createElement('div'); c.className='upgradeCard';
+        let badge='';
+        if(u.type==='scaling'){
+          badge=`<div style="margin-left:auto;background:#0a4a2a;color:#4dff9a;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid #1a8a4a">∞ SCALE</div>`;
+        } else if(u.type==='skillup'){
+          const lv=(G.p.skillLevels[u.sup]||0)+1;
+          const isEvolution=lv===5,isEvolved=lv>5;
+          const waveTag=u.minWave?` · Wave ${u.minWave}+`:'';
+          badge=isEvolution
+            ?`<div style="margin-left:auto;background:#c8860a;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap;font-weight:600">EVOLVE ✨</div>`
+            :isEvolved
+              ?`<div style="margin-left:auto;background:#8B4513;color:#FFD700;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">POWER UP${waveTag}</div>`
+              :`<div style="margin-left:auto;background:#7F77DD;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">LVL UP</div>`;
+        }
+        c.innerHTML=`<div class="upgradeIcon">${u.icon}</div><div class="upgradeInfo" style="flex:1"><h3>${u.name}</h3><p>${u.desc}</p></div>${badge}`;
+        const pick=()=>applyUpgrade(u);
+        c.addEventListener('click',pick);
+        c.addEventListener('touchend',e=>{e.preventDefault();pick();},{passive:false});
+        el.appendChild(c);
+      });
+      const skip=document.createElement('button');
+      skip.className='btn';
+      skip.style.cssText='background:#1a1a2e;border:1px solid #333;font-size:13px;margin-top:4px;';
+      skip.textContent='✕ Decide later';
+      skip.addEventListener('click',()=>{el.style.display='none';});
+      skip.addEventListener('touchend',e=>{e.preventDefault();el.style.display='none';},{passive:false});
+      el.appendChild(skip);
+      return; // stay open
+    }
   }
+
+  // No more pending — close the screen
+  document.getElementById('upgradeScreen').style.display='none';
 }
 
 function togglePause(){
@@ -2103,7 +2191,7 @@ const jZone=document.getElementById('joystickZone');
 const jStick=document.getElementById('joystickStick');
 jZone.addEventListener('touchstart',e=>{
   e.preventDefault();joy.active=true;
-  const r=jZone.getBoundingClientRect();joy.ox=r.left+60;joy.oy=r.top+60;
+  const r=jZone.getBoundingClientRect();joy.ox=r.left+65;joy.oy=r.top+65;
 },{passive:false});
 jZone.addEventListener('touchmove',e=>{
   e.preventDefault();if(!joy.active) return;
