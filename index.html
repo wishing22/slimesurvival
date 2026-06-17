@@ -55,6 +55,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
 #nameEntryBox p{color:#aaa;font-size:13px;text-align:center;max-width:280px;line-height:1.5;}
 #nameInput{background:#141428;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:18px;padding:12px 16px;width:220px;text-align:center;outline:none;}
 #nameInput::placeholder{color:#444;}
+@keyframes upgradePulse{from{box-shadow:0 0 6px #534AB7;}to{box-shadow:0 0 14px #AFA9EC,0 0 4px #fff;}}
 </style>
 </head>
 <body>
@@ -65,6 +66,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
       <span id="killLabel">💀 0</span>
       <span id="waveInfo">Wave 1</span>
       <span id="timeLabel">0:00</span>
+      <button id="upgradeBtn" style="display:none;background:#534AB7;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;padding:4px 10px;cursor:pointer;position:relative;animation:upgradePulse 0.8s infinite alternate;">⬆️ <span id="upgradePendingCount">0</span></button>
       <button id="pauseBtn">⏸</button>
     </div>
     <div id="waveLabel"></div>
@@ -231,16 +233,17 @@ function newGame(){
     kills:0,score:0,elapsed:0,
     skillCD:{fireball:0,lightning:0,iceRing:0,wind:0},
     running:true,upgrading:false, shakeTimer:0, flashTimer:0,
-    passiveXpTimer:0,
+    passiveXpTimer:0, pendingUpgrades:0,
   };
   paused=false;
   document.getElementById('pauseScreen').style.display='none';
+  document.getElementById('upgradeBtn').style.display='none';
   showWave(1);
 }
 
 function loop(ts){
   const dt=Math.min((ts-lastTs)/16.667,4); lastTs=ts;
-  if(G&&G.running&&!G.upgrading&&!paused) update(dt);
+  if(G&&G.running&&!paused) update(dt);
   render();
   requestAnimationFrame(loop);
 }
@@ -1114,17 +1117,26 @@ function spawnHeart(){
 
 function addXp(v){
   const p=G.p; p.xp+=v;
-  if(p.xp>=p.xpNext){
+  while(p.xp>=p.xpNext){
     p.xp-=p.xpNext;
-    // XP per level — gentle early, steep late:
-    // lv 1-15:  +20  (quick early upgrades, ~5 levels per wave)
-    // lv 16-40: +120 (~2-3 per wave mid-game)
-    // lv 41-70: +500 (~1 per wave)
-    // lv 71+:   +1500 (each level is an achievement)
     const inc = p.level>70 ? 1500 : p.level>40 ? 500 : p.level>15 ? 120 : 20;
     p.xpNext=p.xpNext+inc;
     p.level++;
-    showUpgrades();
+    G.pendingUpgrades=(G.pendingUpgrades||0)+1;
+  }
+  updateUpgradeBtn();
+}
+
+function updateUpgradeBtn(){
+  const n=G.pendingUpgrades||0;
+  const btn=document.getElementById('upgradeBtn');
+  const countEl=document.getElementById('upgradePendingCount');
+  if(!btn) return;
+  if(n>0){
+    btn.style.display='block';
+    countEl.textContent=n;
+  } else {
+    btn.style.display='none';
   }
 }
 
@@ -1178,32 +1190,33 @@ function buildUpgradePool(){
 }
 
 function showUpgrades(){
-  G.upgrading=true;
+  if(!G||!G.running) return;
+  if((G.pendingUpgrades||0)<=0) return;
+  if(document.getElementById('upgradeScreen').style.display==='flex') return;
+
+  const p=G.p;
   const pool=buildUpgradePool();
-  // shuffle and pick 3 unique
   const shuffled=pool.sort(()=>Math.random()-0.5);
   const picks=shuffled.slice(0,3);
+  const remaining=Math.max(0,(G.pendingUpgrades||0)-1);
 
   const el=document.getElementById('upgradeScreen');
   el.style.display='flex';
-  el.innerHTML=`<h2>⬆️ Level ${G.p.level}! Choose an upgrade</h2>`;
+  el.innerHTML=`<h2>⬆️ Level ${p.level}!${remaining>0?` <span style="color:#aaa;font-size:13px;font-weight:400">(+${remaining} more)</span>`:''}  Choose an upgrade</h2>`;
   picks.forEach(u=>{
     const c=document.createElement('div'); c.className='upgradeCard';
-    // show current level badge for skill upgrades
     let badge='';
     if(u.type==='scaling'){
-      const n=(G.p.scalingStacks&&G.p.scalingStacks[u._stackKey])||0;
       badge=`<div style="margin-left:auto;background:#0a4a2a;color:#4dff9a;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid #1a8a4a">∞ SCALE</div>`;
     } else if(u.type==='skillup'){
-      const lv=(G.p.skillLevels[u.sup]||0)+1;
-      const isEvolution=lv===5;
-      const isEvolved=lv>5;
-      const waveTag=u.minWave ? ` · Wave ${u.minWave}+` : '';
+      const lv=(p.skillLevels[u.sup]||0)+1;
+      const isEvolution=lv===5, isEvolved=lv>5;
+      const waveTag=u.minWave?` · Wave ${u.minWave}+`:'';
       badge=isEvolution
-        ? `<div style="margin-left:auto;background:#c8860a;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap;font-weight:600">EVOLVE ✨</div>`
-        : isEvolved
-          ? `<div style="margin-left:auto;background:#8B4513;color:#FFD700;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">POWER UP${waveTag}</div>`
-          : `<div style="margin-left:auto;background:#7F77DD;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">LVL UP</div>`;
+        ?`<div style="margin-left:auto;background:#c8860a;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap;font-weight:600">EVOLVE ✨</div>`
+        :isEvolved
+          ?`<div style="margin-left:auto;background:#8B4513;color:#FFD700;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">POWER UP${waveTag}</div>`
+          :`<div style="margin-left:auto;background:#7F77DD;color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;white-space:nowrap">LVL UP</div>`;
     }
     c.innerHTML=`<div class="upgradeIcon">${u.icon}</div><div class="upgradeInfo" style="flex:1"><h3>${u.name}</h3><p>${u.desc}</p></div>${badge}`;
     const pick=()=>applyUpgrade(u);
@@ -1211,6 +1224,14 @@ function showUpgrades(){
     c.addEventListener('touchend',e=>{e.preventDefault();pick();},{passive:false});
     el.appendChild(c);
   });
+  // Skip button — close panel without picking, count stays
+  const skip=document.createElement('button');
+  skip.className='btn';
+  skip.style.cssText='background:#1a1a2e;border:1px solid #333;font-size:13px;margin-top:4px;';
+  skip.textContent='✕ Decide later';
+  skip.addEventListener('click',()=>{el.style.display='none';});
+  skip.addEventListener('touchend',e=>{e.preventDefault();el.style.display='none';},{passive:false});
+  el.appendChild(skip);
 }
 
 function applyUpgrade(u){
@@ -1222,38 +1243,39 @@ function applyUpgrade(u){
     if(u.stat==='moveSpeed') p.moveSpeed*=(1+u.amt);
     else if(u.stat==='spinSpeed') p.spinSpeed*=(1+u.amt);
     else if(u.stat==='hp'){p.maxHp+=u.amt;p.hp=Math.min(p.hp+u.amt,p.maxHp);}
-    else if(u.stat==='damage') p.damageMult=Math.min(8, p.damageMult*(1+u.amt));
+    else if(u.stat==='damage') p.damageMult=Math.min(8,p.damageMult*(1+u.amt));
     else if(u.stat==='magnet') p.magnetRange*=u.amt;
   } else if(u.type==='scaling'){
     if(!p.scalingStacks) p.scalingStacks={};
     p.scalingStacks[u._stackKey]=(p.scalingStacks[u._stackKey]||0)+1;
     const t2=u.type2||u.stat;
-    if(t2==='damageMult'){
-      p.damageMult=Math.min((u.cap||8), p.damageMult*u.mult);
-    } else if(t2==='skillDmgMult'){
-      p.skillDmgMult=Math.min((u.cap||5), (p.skillDmgMult||1)*u.mult);
-      p.cdReduction=(p.cdReduction||1)*0.95; // smaller CD bonus per pick
-    } else if(t2==='hp'){
-      p.maxHp+=u.flat; p.hp=p.maxHp;
-    } else if(t2==='speedspin'){
-      p.moveSpeed*=1.10; p.spinSpeed*=1.15; // reduced from 1.15/1.20
-    } else if(t2==='cd'){
-      p.cdReduction=Math.max(0.25, (p.cdReduction||1)*0.92); // floor at 0.25 (75% reduction max)
-    }
+    if(t2==='damageMult') p.damageMult=Math.min((u.cap||8),p.damageMult*u.mult);
+    else if(t2==='skillDmgMult'){p.skillDmgMult=Math.min((u.cap||5),(p.skillDmgMult||1)*u.mult);p.cdReduction=(p.cdReduction||1)*0.95;}
+    else if(t2==='hp'){p.maxHp+=u.flat;p.hp=p.maxHp;}
+    else if(t2==='speedspin'){p.moveSpeed*=1.10;p.spinSpeed*=1.15;}
+    else if(t2==='cd'){p.cdReduction=Math.max(0.25,(p.cdReduction||1)*0.92);}
   } else if(u.type==='heal'){
-    if(u.htype==='regen'){ p.regenRate=Math.max(p.regenRate,4); if(p.regenTickTimer<=0)p.regenTickTimer=5; }
-    else if(u.htype==='regenBoost'){p.regenRate+=(u.amt||4); if(p.regenTickTimer<=0)p.regenTickTimer=5;}
+    if(u.htype==='regen'){p.regenRate=Math.max(p.regenRate,4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
+    else if(u.htype==='regenBoost'){p.regenRate+=(u.amt||4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
     else if(u.htype==='healOrbs') p.healOrbs=true;
     else if(u.htype==='lifesteal') p.lifesteal=true;
     else if(u.htype==='vampirism') p.vampirism=true;
     else if(u.htype==='heartRate') p.heartRateBoost*=0.6;
   }
+  // consume one pending upgrade
+  G.pendingUpgrades=Math.max(0,(G.pendingUpgrades||1)-1);
   document.getElementById('upgradeScreen').style.display='none';
-  G.upgrading=false;
+  updateUpgradeBtn();
+  // flash button gold if more pending
+  if(G.pendingUpgrades>0){
+    const btn=document.getElementById('upgradeBtn');
+    if(btn){btn.style.background='#FFD700';btn.style.color='#000';}
+    setTimeout(()=>{if(btn){btn.style.background='#534AB7';btn.style.color='#fff';}},400);
+  }
 }
 
 function togglePause(){
-  if(!G||!G.running||G.upgrading) return;
+  if(!G||!G.running) return;
   paused=!paused;
   document.getElementById('pauseScreen').style.display=paused?'flex':'none';
   document.getElementById('pauseBtn').textContent=paused?'▶':'⏸';
@@ -2112,6 +2134,8 @@ document.addEventListener('keyup',e=>{
   if(e.key==='ArrowUp'   ||k==='w') joy.dy=0;
   if(e.key==='ArrowDown' ||k==='s') joy.dy=0;
 });
+document.getElementById('upgradeBtn').addEventListener('click',()=>showUpgrades());
+document.getElementById('upgradeBtn').addEventListener('touchend',e=>{e.preventDefault();showUpgrades();},{passive:false});
 document.getElementById('pauseBtn').addEventListener('click',togglePause);
 document.getElementById('pauseBtn').addEventListener('touchend',e=>{e.preventDefault();togglePause();},{passive:false});
 document.getElementById('resumeBtn').addEventListener('click',()=>{
