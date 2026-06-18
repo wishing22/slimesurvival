@@ -171,41 +171,41 @@ function norm(v){const m=Math.sqrt(v.x*v.x+v.y*v.y)||1;return{x:v.x/m,y:v.y/m};}
 function lerp(a,b,t){return a+(b-a)*t;}
 
 // ---- UPGRADE DEFINITIONS ----
-// Static upgrades (weapons, skills to unlock, stats, heals)
 const UPGRADES_STATIC=[
-  {id:'sword',    icon:'⚔️', name:'Add Sword',     desc:'Another sword joins your orbit',           type:'weapon',wtype:'sword'},
-  {id:'spear',    icon:'🗡️', name:'Add Spear',     desc:'A fast spear joins your orbit',            type:'weapon',wtype:'spear'},
-  {id:'fireball', icon:'🔥', name:'Fireball',      desc:'Homing fireball every 3s — weak at first', type:'skill', stype:'fireball'},
-  {id:'lightning',icon:'⚡', name:'Lightning',     desc:'Zaps 1 nearby enemy every 2s',             type:'skill', stype:'lightning'},
-  {id:'iceRing',  icon:'❄️', name:'Ice Ring',      desc:'8 weak shards outward every 3s',           type:'skill', stype:'iceRing'},
-  {id:'wind',     icon:'💨', name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',  type:'skill', stype:'wind'},
-  {id:'swordStorm',icon:'🗡️✨',name:'Sword Storm', desc:'Launches 2 homing swords at enemies every 2.5s', type:'skill', stype:'swordStorm'},
-  {id:'speed',    icon:'👟', name:'Move Faster',   desc:'Movement speed +20%',                      type:'stat',  stat:'moveSpeed',amt:0.20},
-  {id:'spin',     icon:'🌀', name:'Faster Spin',   desc:'Weapons spin 30% faster',                  type:'stat',  stat:'spinSpeed',amt:0.30},
-  {id:'hp',       icon:'❤️', name:'Max HP +40',    desc:'Gain 40 max HP and heal 40',               type:'stat',  stat:'hp',       amt:40},
-  {id:'dmg',      icon:'💥', name:'More Damage',   desc:'All damage +25%',                          type:'stat',  stat:'damage',   amt:0.25},
-  {id:'magnet',   icon:'🧲', name:'XP Magnet',     desc:'Collect XP orbs from farther away',        type:'stat',  stat:'magnet',   amt:1.6},
-  {id:'regen',    icon:'💚', name:'Regeneration',  desc:'Restore 4 HP every 5 seconds',             type:'heal',  htype:'regen'},
-  {id:'regenup',  icon:'🌿', name:'Regen Boost',   desc:'Regen +4 HP per tick (stacks)',             type:'heal',  htype:'regenBoost',amt:4},
-  {id:'healOrbs', icon:'✨', name:'Blessed Orbs',  desc:'XP orbs also restore 1 HP',                type:'heal',  htype:'healOrbs'},
-  {id:'lifesteal',icon:'🩸', name:'Life Steal',    desc:'10% of weapon damage heals you',           type:'heal',  htype:'lifesteal'},
-  {id:'vampirism',icon:'🧛', name:'Vampirism',     desc:'Killing enemies restores 5 HP',            type:'heal',  htype:'vampirism'},
-  {id:'heartrate',icon:'💓', name:'Heart Rate',    desc:'Hearts spawn 40% more often',              type:'heal',  htype:'heartRate'},
+  // Weapons
+  {id:'sword',     icon:'⚔️',  name:'Add Sword',     desc:'Another sword joins your orbit',                    type:'weapon', wtype:'sword'},
+  {id:'spear',     icon:'🗡️',  name:'Add Spear',     desc:'A faster, piercing spear joins your orbit',         type:'weapon', wtype:'spear'},
+  // Skills
+  {id:'fireball',  icon:'🔥',  name:'Fireball',      desc:'Homing fireball every 3s',                          type:'skill',  stype:'fireball'},
+  {id:'lightning', icon:'⚡',  name:'Lightning',     desc:'Zaps a nearby enemy every 2s',                      type:'skill',  stype:'lightning'},
+  {id:'iceRing',   icon:'❄️',  name:'Ice Ring',      desc:'8 shards burst outward every 3s',                   type:'skill',  stype:'iceRing'},
+  {id:'wind',      icon:'💨',  name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',           type:'skill',  stype:'wind'},
+  {id:'swordStorm',icon:'🗡️✨', name:'Sword Storm',  desc:'Launches homing swords at enemies every 2.5s',      type:'skill',  stype:'swordStorm'},
+  // Stats — one clear pick per category, no overlap with scaling
+  {id:'magnet',    icon:'🧲',  name:'XP Magnet',     desc:'Collect XP orbs from twice the distance',           type:'stat',   stat:'magnet',    amt:1.6},
+  {id:'heartrate', icon:'💓',  name:'Heart Rate',    desc:'Hearts spawn 50% more often',                       type:'heal',   htype:'heartRate'},
+  // Healing — distinct mechanics only
+  {id:'healOrbs',  icon:'✨',  name:'Soul Drain',    desc:'XP orbs also restore 2 HP when collected',          type:'heal',   htype:'healOrbs'},
 ];
 
-// Infinitely repeatable scaling upgrades — always available, stack with soft caps.
-// Multipliers are smaller per pick to prevent one-shotting everything.
+// Infinitely repeatable scaling upgrades — always in pool, stack with caps
 const SCALING_UPGRADES=[
-  {id:'sc_dmg',    icon:'⚔️🔥', skey:'dmg',    name:'Power Surge',      type:'scaling',
-   desc:(n)=>`All damage ×1.08 · cap ×8 (stack ${n+1})`,               mult:1.08, stat:'damageMult',   cap:8.0},
-  {id:'sc_cdmg',   icon:'⚡💥', skey:'cdmg',   name:'Skill Overcharge',  type:'scaling',
-   desc:(n)=>`Skill damage ×1.10 · cap ×5 (stack ${n+1})`,             mult:1.10, stat:'skillDmgMult', cap:5.0},
-  {id:'sc_hp',     icon:'❤️⬆️', skey:'hp',    name:'Iron Flesh',        type:'scaling',
-   desc:(n)=>`Max HP +80 and heal fully (stack ${n+1})`,                 flat:80,   stat:'hp'},
-  {id:'sc_speed',  icon:'💨⚡', skey:'speed',  name:'Adrenaline Rush',   type:'scaling',
-   desc:(n)=>`Move speed +10%, weapon spin +15% (stack ${n+1})`,        type2:'speedspin'},
-  {id:'sc_cd',     icon:'⏱️🔄', skey:'cd',    name:'Rapid Fire',        type:'scaling',
-   desc:(n)=>`All skill cooldowns −8% · floor 0.3s (stack ${n+1})`,     type2:'cd'},
+  {id:'sc_dmg',    icon:'💥',   skey:'dmg',   name:'Power Surge',      type:'scaling',
+   desc:(n)=>`All damage ×1.10 · cap ×8 (stack ${n+1})`,              mult:1.10, stat:'damageMult',   cap:8.0},
+  {id:'sc_cdmg',   icon:'⚡✨', skey:'cdmg',  name:'Skill Overcharge', type:'scaling',
+   desc:(n)=>`Skill damage ×1.12 · cooldowns −5% (stack ${n+1})`,     mult:1.12, stat:'skillDmgMult', cap:5.0},
+  {id:'sc_hp',     icon:'❤️',  skey:'hp',    name:'Vitality',         type:'scaling',
+   desc:(n)=>`Max HP +60 · fully heals you (stack ${n+1})`,            flat:60,   stat:'hp'},
+  {id:'sc_regen',  icon:'💚',  skey:'regen', name:'Regeneration',     type:'scaling',
+   desc:(n)=>`Restore ${4+(n*4)} HP every 5 seconds (stack ${n+1})`,  type2:'regen', amt:4},
+  {id:'sc_speed',  icon:'👟🌀', skey:'speed', name:'Momentum',         type:'scaling',
+   desc:(n)=>`Move speed +12%, weapon spin +18% (stack ${n+1})`,      type2:'speedspin'},
+  {id:'sc_cd',     icon:'⏱️',  skey:'cd',    name:'Rapid Fire',       type:'scaling',
+   desc:(n)=>`All skill cooldowns −8% · min 0.3s (stack ${n+1})`,     type2:'cd'},
+  {id:'sc_lifesteal',icon:'🩸', skey:'ls',   name:'Life Steal',       type:'scaling',
+   desc:(n)=>`Heal ${8+(n*4)}% of weapon damage dealt (stack ${n+1})`,type2:'lifesteal', amt:0.04},
+  {id:'sc_vamp',   icon:'🧛',  skey:'vamp',  name:'Vampirism',        type:'scaling',
+   desc:(n)=>`Kill any enemy to restore ${5+(n*3)} HP (stack ${n+1})`,type2:'vampirism', amt:3},
 ];
 
 // Per-skill level-up cards. Levels 1-4 = base skill growth. Level 5 = EVOLUTION unlock.
@@ -281,7 +281,8 @@ function newGame(){
     skillDmgMult:1.0,  // separate multiplier for skill damage only
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
     scalingStacks:{dmg:0,cdmg:0,hp:0,speed:0,cd:0}, // track stacks per scaling upgrade
-    regenRate:0,regenTickTimer:0,lifesteal:false,vampirism:false,healOrbs:false,heartRateBoost:1,
+    regenRate:0,regenTickTimer:0,healOrbs:false,heartRateBoost:1,
+    lifestealPct:0,vampirismAmt:0,
     xp:0,xpNext:20,level:1,
   };
   G={
@@ -373,7 +374,7 @@ function update(dt){
           const dmg=Math.round((w.type==='spear'?35:28)*p.damageMult); // was 18/14
           hitEnemy(e,dmg);
           w.hitCD[e.id]=12; // slightly faster hit rate too
-          if(p.lifesteal) healPlayer(Math.max(1,Math.round(dmg*0.1)),true);
+          if(p.lifestealPct) healPlayer(Math.max(1,Math.round(dmg*p.lifestealPct)),true);
         }
       });
     });
@@ -749,7 +750,7 @@ function update(dt){
   G.orbs=orbs.filter(o=>{
     const d=dist(o,p);
     if(d<pickRange){o.x=lerp(o.x,p.x,0.18);o.y=lerp(o.y,p.y,0.18);}
-    if(d<p.r+o.r+2){addXp(o.val);if(p.healOrbs)healPlayer(1,false);return false;}
+    if(d<p.r+o.r+2){addXp(o.val);if(p.healOrbs)healPlayer(2,false);return false;}
     return true;
   });
 
@@ -1087,79 +1088,47 @@ function fireWind(){
 function fireSwordStorm(){
   const p=G.p;
   const lv=p.skillLevels.swordStorm||0;
-  const evolved=lv>=5; // blade tempest tier
+  const evolved=lv>=5;
+  if(!G.enemies||G.enemies.length===0) return;
 
   if(evolved){
-    // ---- BLADE TEMPEST ----
-    const elv=lv-5; // 0-4
-    const mega=lv>=9; // Infinite Tempest
-
+    const elv=lv-5;
+    const mega=lv>=9;
     if(mega){
-      // Infinite Tempest — persistent spinning blade zone around player
       G.projs=G.projs.filter(pr=>pr.type!=='bladeTempestAura');
-      G.projs.push({
-        type:'bladeTempestAura',
-        r:120+elv*20,
+      G.projs.push({type:'bladeTempestAura',r:120+elv*20,
         dmgPerTick:Math.round(200*p.damageMult*(p.skillDmgMult||1)),
-        tickTimer:0, tickRate:8,
-        spinAngle:0, bladesCount:12,
-        life:999 // refreshed each cast
-      });
-      // Also fire a volley outward
+        tickTimer:0,tickRate:8,spinAngle:0,bladesCount:12,life:999});
     }
-
     const count=mega?16:8+elv*2;
-    const dmg=Math.round((500+elv*200)*p.damageMult*(p.skillDmgMult||1)); // lv5=500, lv9=1300
-    const pierce=lv>=6;
-    const explode=lv>=8;
-
-    if(G.enemies.length===0) return;
-    // Launch swords toward nearest enemies, spread out
+    const dmg=Math.round((500+elv*200)*p.damageMult*(p.skillDmgMult||1));
     const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
     for(let i=0;i<count;i++){
       const target=sorted[i%Math.min(sorted.length,count)];
       const angle=(Math.PI*2/count)*i;
-      // Orbit briefly then home — launch from a spinning ring first
-      const orbitR=30+elv*5;
+      const orbitR=35+elv*5;
       const sx=p.x+Math.cos(angle)*orbitR;
       const sy=p.y+Math.sin(angle)*orbitR;
       const d=norm({x:target.x-sx,y:target.y-sy});
-      G.projs.push({
-        x:sx, y:sy,
-        vx:d.x*6, vy:d.y*6,
-        r:8+elv*1.5, type:'swordProj',
-        dmg, target, pierce, explode,
-        pierceCount:pierce?3:0,
-        life:200, angle,
-        trail:[]
-      });
+      const vx=d.x*7, vy=d.y*7;
+      G.projs.push({x:sx,y:sy,vx,vy,r:10,type:'swordProj',
+        dmg,target,pierce:lv>=6,explode:lv>=8,
+        pierceCount:lv>=6?3:0,life:220,angle:Math.atan2(vy,vx),trail:[]});
     }
-
   } else {
-    // ---- SWORD STORM (base) ----
-    if(G.enemies.length===0) return;
-    const count=2+lv*2;         // lv0=2, lv1=4, lv2=6, lv3=8, lv4=10
-    const dmg=Math.round((120+lv*60)*p.damageMult*(p.skillDmgMult||1)); // lv0=120, lv4=360
-    const pierce=lv>=2;
-    const ricochet=lv>=3;
+    const count=2+lv*2;
+    const dmg=Math.round((120+lv*60)*p.damageMult*(p.skillDmgMult||1));
     const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
     for(let i=0;i<count;i++){
       const target=sorted[i%Math.min(sorted.length,count)];
-      const spread=rnd(-0.25,0.25);
+      const spread=rnd(-0.2,0.2);
       const d=norm({x:target.x-p.x,y:target.y-p.y});
-      const spd=5.5+lv*0.3;
-      const ca=Math.cos(spread), sa=Math.sin(spread);
-      G.projs.push({
-        x:p.x, y:p.y,
-        vx:(d.x*ca-d.y*sa)*spd,
-        vy:(d.x*sa+d.y*ca)*spd,
-        r:7+lv*0.8, type:'swordProj',
-        dmg, target, pierce,
-        pierceCount:pierce?2:0,
-        ricochet, explode:false,
-        life:180, angle:Math.atan2(d.y,d.x),
-        trail:[]
-      });
+      const spd=7+lv*0.5;
+      const ca=Math.cos(spread),sa=Math.sin(spread);
+      const vx=(d.x*ca-d.y*sa)*spd, vy=(d.x*sa+d.y*ca)*spd;
+      G.projs.push({x:p.x,y:p.y,vx,vy,r:10,type:'swordProj',
+        dmg,target,pierce:lv>=2,ricochet:lv>=3,explode:false,
+        pierceCount:lv>=2?2:0,life:200,angle:Math.atan2(vy,vx),trail:[]});
     }
   }
 }
@@ -1294,7 +1263,7 @@ function killEnemy(e){
       });
     }
   });
-  if(G.p.vampirism) healPlayer(5,true);
+  if(G.p.vampirismAmt) healPlayer(G.p.vampirismAmt,true);
 }
 
 function healPlayer(amt,show){
@@ -1459,16 +1428,15 @@ function applyUpgrade(u){
     const t2=u.type2||u.stat;
     if(t2==='damageMult') p.damageMult=Math.min((u.cap||8),p.damageMult*u.mult);
     else if(t2==='skillDmgMult'){p.skillDmgMult=Math.min((u.cap||5),(p.skillDmgMult||1)*u.mult);p.cdReduction=(p.cdReduction||1)*0.95;}
-    else if(t2==='hp'){p.maxHp+=u.flat;p.hp=p.maxHp;}
-    else if(t2==='speedspin'){p.moveSpeed*=1.10;p.spinSpeed*=1.15;}
+    else if(t2==='hp'){p.maxHp+=(u.flat||60);p.hp=p.maxHp;}
+    else if(t2==='regen'){p.regenRate=(p.regenRate||0)+(u.amt||4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
+    else if(t2==='speedspin'){p.moveSpeed*=1.12;p.spinSpeed*=1.18;}
     else if(t2==='cd'){p.cdReduction=Math.max(0.25,(p.cdReduction||1)*0.92);}
+    else if(t2==='lifesteal'){p.lifestealPct=(p.lifestealPct||0.05)+(u.amt||0.04);}
+    else if(t2==='vampirism'){p.vampirismAmt=(p.vampirismAmt||5)+(u.amt||3);}
   } else if(u.type==='heal'){
-    if(u.htype==='regen'){p.regenRate=Math.max(p.regenRate,4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
-    else if(u.htype==='regenBoost'){p.regenRate+=(u.amt||4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
-    else if(u.htype==='healOrbs') p.healOrbs=true;
-    else if(u.htype==='lifesteal') p.lifesteal=true;
-    else if(u.htype==='vampirism') p.vampirism=true;
-    else if(u.htype==='heartRate') p.heartRateBoost*=0.6;
+    if(u.htype==='healOrbs') p.healOrbs=true;
+    else if(u.htype==='heartRate') p.heartRateBoost=(p.heartRateBoost||1)*0.55;
   }
   // consume one pending upgrade — remove the front of the queue
   G.pendingUpgrades=Math.max(0,(G.pendingUpgrades||1)-1);
