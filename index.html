@@ -523,18 +523,21 @@ function update(dt){
       pr.target=G.enemies.reduce((a,b)=>dist(a,{x:pr.x,y:pr.y})<dist(b,{x:pr.x,y:pr.y})?a:b);
     }
     // hit detection — use sword length as effective hit radius
-    const hitR=pr.r*2.2; // sword is ~2x longer than it is wide
+    const hitR=pr.r*2.2;
     let hit=false;
-    for(let i=0;i<enemies.length;i++){
-      const e=enemies[i];
-      if(dist(pr,e)<hitR+e.r){
+    // DEBUG: use G.enemies not stale snapshot
+    const liveEnemies=G.enemies;
+    for(let i=0;i<liveEnemies.length;i++){
+      const e=liveEnemies[i];
+      const d=dist(pr,e);
+      if(d<hitR+e.r){
         hitEnemy(e,Math.round(pr.dmg));
         if(pr.explode){
-          enemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<70)hitEnemy(ne,Math.round(pr.dmg*0.5));});
+          liveEnemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<70)hitEnemy(ne,Math.round(pr.dmg*0.5));});
           spawnBurst(pr.x,pr.y,'#c8a040',12);
         }
         if(pr.ricochet&&pr.pierceCount>0){
-          const next=enemies.filter(ne=>ne!==e).sort((a,b)=>dist(a,pr)-dist(b,pr))[0];
+          const next=liveEnemies.filter(ne=>ne!==e).sort((a,b)=>dist(a,pr)-dist(b,pr))[0];
           if(next){pr.target=next;pr.pierceCount--;hit=false;break;}
         }
         if(pr.pierce&&pr.pierceCount>0){pr.pierceCount--;break;}
@@ -1089,7 +1092,8 @@ function fireSwordStorm(){
   const p=G.p;
   const lv=p.skillLevels.swordStorm||0;
   const evolved=lv>=5;
-  if(!G.enemies||G.enemies.length===0) return;
+  console.log('fireSwordStorm called, lv='+lv+', enemies='+G.enemies.length+', evolved='+evolved);
+  if(!G.enemies||G.enemies.length===0){console.log('BAILED: no enemies');return;}
 
   if(evolved){
     const elv=lv-5;
@@ -1118,6 +1122,7 @@ function fireSwordStorm(){
   } else {
     const count=2+lv*2;
     const dmg=Math.round((120+lv*60)*p.damageMult*(p.skillDmgMult||1));
+    console.log('BASE: count='+count+', dmg='+dmg+', enemies='+G.enemies.length);
     const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
     for(let i=0;i<count;i++){
       const target=sorted[i%Math.min(sorted.length,count)];
@@ -2007,12 +2012,12 @@ function drawProj(pr){
   // sword projectile
   if(pr.type==='swordProj'){
     ctx.save();
-    // smooth fading wake trail — drawn before the sword
+    // wake trail
     if(pr.trail&&pr.trail.length>1){
       for(let i=1;i<pr.trail.length;i++){
         const t=i/pr.trail.length;
-        ctx.globalAlpha=t*0.5;
-        ctx.strokeStyle='rgba(255,230,100,0.8)';
+        ctx.globalAlpha=t*0.45;
+        ctx.strokeStyle='rgba(255,230,80,0.9)';
         ctx.lineWidth=3*t;
         ctx.lineCap='round';
         ctx.beginPath();
@@ -2023,52 +2028,34 @@ function drawProj(pr){
     }
     ctx.globalAlpha=1;
     ctx.translate(pr.x,pr.y);
-    // rotate so the sword tip points in the direction of travel
-    ctx.rotate((pr.angle||0)-Math.PI/2);
-
-    // fixed size — 28px long, clearly visible
-    const L=28, W=5;
+    ctx.rotate((pr.angle||0)-Math.PI/2); // tip points in travel direction
+    const SL=28, SW=5; // sword length, sword width — renamed to avoid shadowing W()
     // blade body
     ctx.fillStyle='#d8d8e8';
     ctx.beginPath();
-    ctx.moveTo(-W*0.5,-L*0.55);
-    ctx.lineTo(W*0.5,-L*0.55);
-    ctx.lineTo(W*0.3, L*0.1);
-    ctx.lineTo(-W*0.3,L*0.1);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(-SW*0.5, -SL*0.5);
+    ctx.lineTo( SW*0.5, -SL*0.5);
+    ctx.lineTo( SW*0.3,  SL*0.1);
+    ctx.lineTo(-SW*0.3,  SL*0.1);
+    ctx.closePath(); ctx.fill();
     // blade tip
     ctx.fillStyle='#ffffff';
     ctx.beginPath();
-    ctx.moveTo(-W*0.45,-L*0.55);
-    ctx.lineTo(W*0.45,-L*0.55);
-    ctx.lineTo(0,-L);
-    ctx.closePath();
-    ctx.fill();
-    // fuller (centre groove shine)
-    ctx.strokeStyle='rgba(200,220,255,0.5)';
-    ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.moveTo(0,-L*0.5);ctx.lineTo(0,L*0.08);ctx.stroke();
+    ctx.moveTo(-SW*0.4,-SL*0.5);
+    ctx.lineTo( SW*0.4,-SL*0.5);
+    ctx.lineTo(0,-SL);
+    ctx.closePath(); ctx.fill();
     // crossguard
     ctx.fillStyle='#FFD700';
-    ctx.beginPath();
-    ctx.moveTo(-L*0.32,L*0.08);
-    ctx.lineTo(L*0.32,L*0.08);
-    ctx.lineTo(L*0.28,L*0.18);
-    ctx.lineTo(-L*0.28,L*0.18);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillRect(-SL*0.3, SL*0.08, SL*0.6, SL*0.12);
     // handle
     ctx.fillStyle='#7a3a10';
-    ctx.fillRect(-W*0.35,L*0.18,W*0.7,L*0.28);
+    ctx.fillRect(-SW*0.35, SL*0.2, SW*0.7, SL*0.28);
     // pommel
     ctx.fillStyle='#cc9933';
-    ctx.beginPath();ctx.arc(0,L*0.5,W*0.55,0,Math.PI*2);ctx.fill();
-    // gold glow on blade
-    ctx.globalAlpha=0.25;
-    ctx.fillStyle='rgba(255,220,80,0.6)';
-    ctx.beginPath();ctx.ellipse(0,-L*0.3,W*0.8,L*0.5,0,0,Math.PI*2);ctx.fill();
-
+    ctx.beginPath();
+    ctx.arc(0, SL*0.5, SW*0.6, 0, Math.PI*2);
+    ctx.fill();
     ctx.restore(); return;
   }
 
@@ -2430,6 +2417,14 @@ document.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight'||k==='d') joy.dx=1;
   if(e.key==='ArrowUp'   ||k==='w') joy.dy=-1;
   if(e.key==='ArrowDown' ||k==='s') joy.dy=1;
+  // Debug: T = force give swordStorm lv1 and fire
+  if(k==='t'&&G&&G.running){
+    if(!G.p.skills.includes('swordStorm')) G.p.skills.push('swordStorm');
+    G.p.skillLevels.swordStorm=Math.min(9,(G.p.skillLevels.swordStorm||0)+1);
+    G.skillCD.swordStorm=0;
+    fireSwordStorm();
+    console.log('swordStorm lv',G.p.skillLevels.swordStorm,'fired, projs:',G.projs.filter(p=>p.type==='swordProj').length);
+  }
 });
 document.addEventListener('keyup',e=>{
   const k=e.key.toLowerCase();
