@@ -212,7 +212,7 @@ const SCALING_UPGRADES=[
   {id:'sc_cd',     icon:'⏱️',  skey:'cd',    name:'Rapid Fire',       type:'scaling',
    desc:(n)=>`All skill cooldowns −8% · min 0.3s (stack ${n+1})`,     type2:'cd'},
   {id:'sc_magnet', icon:'🧲',  skey:'magnet',name:'XP Magnet',         type:'scaling',
-   desc:(n)=>`XP pickup range ×1.4 (stack ${n+1})`,                   type2:'magnet'},
+   desc:(n)=>`XP pickup range ×1.6 (stack ${n+1})`,                   type2:'magnet'},
   {id:'sc_lifesteal',icon:'🩸', skey:'ls',   name:'Life Steal',       type:'scaling',
    desc:(n)=>`Heal ${8+(n*4)}% of weapon damage dealt (stack ${n+1})`,type2:'lifesteal', amt:0.04},
   {id:'sc_vamp',   icon:'🧛',  skey:'vamp',  name:'Vampirism',        type:'scaling',
@@ -604,8 +604,11 @@ function update(dt){
     return true;
   });
 
+  let blizzardAuraFound=false;
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='blizzardAura') return true;
+    if(blizzardAuraFound) return false; // remove duplicates — only keep first
+    blizzardAuraFound=true;
     // spinAngle still used for pulse calculation in draw
     pr.spinAngle=(pr.spinAngle||0)+dt*0.04;
     const blizzLv=G.p.skillLevels.iceRing||0;
@@ -769,9 +772,20 @@ function update(dt){
     }
   });
 
-  // xp orbs
-  const pickRange=32*p.magnetRange;
+  // xp orbs — cap at 200, auto-collect very distant orbs as direct XP
+  const pickRange=60*p.magnetRange;
+  const ORB_CAP=200;
+  // If over cap, auto-collect oldest orbs as XP silently
+  if(G.orbs.length>ORB_CAP){
+    const excess=G.orbs.splice(0, G.orbs.length-ORB_CAP);
+    excess.forEach(o=>addXp(o.val));
+  }
   G.orbs=orbs.filter(o=>{
+    // Auto-collect orbs very far off-screen as direct XP — no magnet lag spike
+    const offscreenDist=400;
+    if(o.x<-offscreenDist||o.x>W()+offscreenDist||o.y<-offscreenDist||o.y>H()+offscreenDist){
+      addXp(o.val); return false;
+    }
     const d=dist(o,p);
     if(d<pickRange){o.x=lerp(o.x,p.x,0.18);o.y=lerp(o.y,p.y,0.18);}
     if(d<p.r+o.r+2){addXp(o.val);if(p.healOrbs)healPlayer(2,false);return false;}
@@ -807,7 +821,7 @@ function update(dt){
 
   // spawning — gentle ramp, cap on screen enemies so early waves don't overwhelm
   G.spawnTimer+=dt;
-  const MAX_ENEMIES=15+G.wave*3; // wave 1=18, wave 6=33, wave 20=75
+  const MAX_ENEMIES=15+G.wave*3;
   const spawnInterval=G.spawnRate*(1/(1+G.wave*0.04)); // gentler acceleration
   if(G.spawnTimer>=spawnInterval && enemies.length<MAX_ENEMIES){
     G.spawnTimer=0;
@@ -992,7 +1006,7 @@ function fireIceRing(){
     }
 
     // 1) Burst of blizzard shards outward
-    const waveShards=20+elv*5;
+    const waveShards=Math.min(24, 16+elv*3); // lv5=16, lv6=19, lv7=22, lv8=24, lv9=24
     const dmg=Math.round((150+elv*80)*p.damageMult*(p.skillDmgMult||1));
     const freezeDur=180+elv*50;
     const speed=5+elv*0.6;
@@ -1285,28 +1299,36 @@ function killEnemy(e){
   G.enemies.splice(idx,1);
   const scores={boss:500,eliteBoss:1500,megaBoss:5000};
   G.kills++; G.score+=(scores[e.type]||50);
-  spawnBurst(e.x,e.y,e.col,18);
+
+  const onScreen=e.x>-e.r&&e.x<W()+e.r&&e.y>-e.r&&e.y<H()+e.r;
+
+  if(onScreen) spawnBurst(e.x,e.y,e.col,18);
 
   // Orb values scale with wave but are capped to prevent XP flooding
   const w=G.wave;
-  // XP scales with the HP scaling factor so tougher enemies always reward proportionally
   const scForXp = w<=10 ? 1+w*0.1
                 : w<=30 ? 2.0+(w-10)*0.3
                 : w<=60 ? 8.0+(w-30)*1.5
                 : 53+(w-60)*6;
-  const waveBonus=Math.min(1+scForXp*0.015, 8); // soft cap at 8× XP multiplier
+  const waveBonus=Math.min(1+scForXp*0.015, 8);
 
   pickOrbTier(e.type).forEach(({t,n})=>{
     const tier=ORB_TIERS[t];
     for(let i=0;i<n;i++){
-      const a=rnd(0,Math.PI*2), d=rnd(8,22);
-      G.orbs.push({
-        x:e.x+Math.cos(a)*d, y:e.y+Math.sin(a)*d,
-        r:tier.r, col:tier.col,
-        val:Math.round(tier.val*waveBonus),
-        tier:tier.tier,
-        wobble:rnd(0,Math.PI*2)
-      });
+      if(onScreen){
+        // Spawn orb at enemy position
+        const a=rnd(0,Math.PI*2), d=rnd(8,22);
+        G.orbs.push({
+          x:e.x+Math.cos(a)*d, y:e.y+Math.sin(a)*d,
+          r:tier.r, col:tier.col,
+          val:Math.round(tier.val*waveBonus),
+          tier:tier.tier,
+          wobble:rnd(0,Math.PI*2)
+        });
+      } else {
+        // Off-screen kill — add XP directly, no orb spawned
+        addXp(Math.round(tier.val*waveBonus));
+      }
     }
   });
   if(G.p.vampirismAmt) healPlayer(G.p.vampirismAmt,true);
@@ -1483,7 +1505,7 @@ function applyUpgrade(u){
     else if(t2==='speed'){p.moveSpeed=Math.min(p.moveSpeed*1.08, 2.0*5.0);} // cap at 5× base (2.0*2.5=5.0)
     else if(t2==='spin'){p.spinSpeed*=1.15;}
     else if(t2==='cd'){p.cdReduction=Math.max(0.25,(p.cdReduction||1)*0.92);}
-    else if(t2==='magnet'){p.magnetRange=(p.magnetRange||1)*1.4;}
+    else if(t2==='magnet'){p.magnetRange=(p.magnetRange||1)*1.6;}
     else if(t2==='lifesteal'){p.lifestealPct=(p.lifestealPct||0.05)+(u.amt||0.04);}
     else if(t2==='vampirism'){p.vampirismAmt=(p.vampirismAmt||5)+(u.amt||3);}
   } else if(u.type==='heal'){
