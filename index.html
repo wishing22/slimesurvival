@@ -190,7 +190,6 @@ const UPGRADES_STATIC=[
   {id:'wind',      icon:'💨',  name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',           type:'skill',  stype:'wind'},
   {id:'swordStorm',icon:'🗡️✨', name:'Sword Storm',  desc:'Launches homing swords at enemies every 2.5s',      type:'skill',  stype:'swordStorm'},
   // Stats — one clear pick per category, no overlap with scaling
-  {id:'magnet',    icon:'🧲',  name:'XP Magnet',     desc:'Collect XP orbs from twice the distance',           type:'stat',   stat:'magnet',    amt:1.6},
   {id:'heartrate', icon:'💓',  name:'Heart Rate',    desc:'Hearts spawn 50% more often',                       type:'heal',   htype:'heartRate'},
   // Healing — distinct mechanics only
   {id:'healOrbs',  icon:'✨',  name:'Soul Drain',    desc:'XP orbs also restore 2 HP when collected',          type:'heal',   htype:'healOrbs'},
@@ -406,6 +405,9 @@ function update(dt){
     const raw=Math.max(0.3, b/(1+lvFactor*0.18));
     return raw*(p.cdReduction||1); // Rapid Fire stacking reduces this
   }
+  // Use a staging array during skill dispatch so no skill can accidentally
+  // clobber projs pushed by earlier skills (e.g. fireIceRing replaces G.projs)
+  G._staging=[];
   p.skills.forEach(sk=>{
     if(G.skillCD[sk]<=0){
       G.skillCD[sk]=getCD(sk);
@@ -416,12 +418,13 @@ function update(dt){
       if(sk==='swordStorm') fireSwordStorm();
     }
   });
+  // Flush staging into G.projs
+  if(G._staging.length) G._staging.forEach(pr=>G.projs.push(pr));
+  G._staging=null;
 
-  // projectiles (fireball, ice, meteor, blizzard, stormBolt)
+  // projectiles (fireball, ice, meteor, blizzard)
   const newProjs=[];
-  // Snapshot projs before filtering — but preserve any items added by fireSwordStorm etc.
-  // Items added to G.projs during skill dispatch (before this filter) must be kept.
-  const preFilterAdded=G.projs.filter(pr=>!projs.includes(pr)); // items added after snapshot
+  const preFilterAdded=G.projs.filter(pr=>!projs.includes(pr));
   G.projs=projs.filter(pr=>{
     // These types are handled by their own dedicated filter blocks below — don't touch them here
     if(pr.type==='wind'||pr.type==='tornado'||
@@ -828,6 +831,9 @@ function update(dt){
   updateHUD();
 }
 
+
+// Helper: push to staging array during skill dispatch, otherwise directly to G.projs
+function projPush(pr){ if(G._staging) G._staging.push(pr); else G.projs.push(pr); }
 // ---- SKILLS ----
 function fireFireball(){
   const p=G.p;
@@ -850,7 +856,7 @@ function fireFireball(){
       const splashR=mega?260:130+elv*30;
       const r=mega?44:24+elv*5;
       const vy=12+elv*2;
-      G.projs.push({
+      projPush({
         x:tx+rnd(-100,100), y:-80,
         vx:rnd(-0.3,0.3), vy,
         r, type:'meteor', dmg, splashR, life:300,
@@ -869,7 +875,7 @@ function fireFireball(){
     const splashR=28+lv*15;
     const spd=4.8+lv*0.4;
     const r=7+lv*1.5;
-    G.projs.push({x:p.x,y:p.y,vx:d.x*spd,vy:d.y*spd,r,
+    projPush({x:p.x,y:p.y,vx:d.x*spd,vy:d.y*spd,r,
       type:'fireball',dmg,splashR,life:150+lv*20,target:t,
       splitOnImpact:lv>=3});
   }
@@ -901,15 +907,15 @@ function fireLightning(){
     firstTargets.forEach((t,i)=>{
       hitEnemy(t, Math.round(dmg));
       if(stuns) t.slowTimer=50;
-      G.projs.push({type:'boltFlash', x:t.x, y:t.y, life:12, maxLife:12,
+      projPush({type:'boltFlash', x:t.x, y:t.y, life:12, maxLife:12,
         col:mega?'#ffffff':'#FFE94D', glow:mega?'rgba(200,180,255,0.6)':'rgba(255,220,80,0.5)'});
       if(chains && i<firstTargets.length-1){
         const next=firstTargets[i+1];
-        G.projs.push({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y, life:10, maxLife:10});
+        projPush({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y, life:10, maxLife:10});
       }
     });
 
-    G.projs.push({
+    projPush({
       type:'stormCloud',
       cx:p.x, cy:p.y,
       life:stormDur,
@@ -959,7 +965,7 @@ function fireIceRing(){
 
       // Five expanding shockwave rings
       for(let ring=0;ring<5;ring++){
-        G.projs.push({
+        projPush({
           type:'iceShockwave',
           cx:p.x, cy:p.y,
           radius:0,
@@ -978,7 +984,7 @@ function fireIceRing(){
 
       // Giant blizzard aura — huge radius, high damage, lasts 15 seconds
       G.projs=G.projs.filter(pr=>pr.type!=='blizzardAura');
-      G.projs.push({
+      projPush({
         type:'blizzardAura',
         r:Math.max(W(),H())*0.75,
         dmgPerFrame:120/60,  // 120 dmg/sec — kills fast
@@ -998,7 +1004,7 @@ function fireIceRing(){
     const splashOnFreeze=lv>=7;
     for(let i=0;i<waveShards;i++){
       const a=(Math.PI*2/waveShards)*i+rnd(-0.08,0.08);
-      G.projs.push({x:p.x,y:p.y,
+      projPush({x:p.x,y:p.y,
         vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
         r:10+elv*2, type:'blizzard', dmg, freezeDur,
         life:100+elv*20, splashOnFreeze});
@@ -1008,7 +1014,7 @@ function fireIceRing(){
     G.projs=G.projs.filter(pr=>pr.type!=='blizzardAura');
     const auraR=130+elv*35;
     const dmgPerSec=(60+elv*30)*(p.skillDmgMult||1)*(p.damageMult||1);
-    G.projs.push({
+    projPush({
       type:'blizzardAura',
       r:auraR,
       dmgPerFrame:dmgPerSec/60,
@@ -1028,7 +1034,7 @@ function fireIceRing(){
     const splashOnFreeze=lv>=4;
     for(let i=0;i<shards;i++){
       const a=(Math.PI*2/shards)*i;
-      G.projs.push({x:p.x,y:p.y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
+      projPush({x:p.x,y:p.y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
         r:projR,type:'ice',dmg,freezeDur,slowDur,life,splashOnFreeze});
     }
   }
@@ -1071,7 +1077,7 @@ function fireWind(){
     }
 
     anchors.forEach(anchor=>{
-      G.projs.push({type:'tornado',
+      projPush({type:'tornado',
         cx:anchor.cx, cy:anchor.cy,
         radius:tornadoR, life, dmg,
         tickTimer:0, tickRate:mega?6:10,   // faster tick = more DPS
@@ -1082,7 +1088,7 @@ function fireWind(){
 
     // Also fire an outward wind burst first to push enemies INTO the tornadoes
     const burstR=100+lv*20;
-    G.projs.push({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:burstR/15,
+    projPush({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:burstR/15,
       maxR:burstR,life:15,force:6,dealsDmg:false,dmg:0,shredArmour:false});
     spawnWindParticles(p.x,p.y,burstR);
 
@@ -1093,7 +1099,7 @@ function fireWind(){
     const dealsDmg=lv>=1;
     const dmg=dealsDmg?Math.round(15*lv*p.damageMult):0;
     const shredArmour=lv>=3;
-    G.projs.push({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:radius/18,
+    projPush({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:radius/18,
       maxR:radius,life:18,force,dealsDmg,dmg,shredArmour});
     spawnWindParticles(p.x,p.y,radius);
     if(lv>=4){
@@ -1104,7 +1110,7 @@ function fireWind(){
         const d=norm({x:nearest.x-p.x,y:nearest.y-p.y});
         cx=nearest.x+d.x*20; cy=nearest.y+d.y*20;
       }
-      G.projs.push({type:'tornado',cx,cy,radius:40,life:240,
+      projPush({type:'tornado',cx,cy,radius:40,life:240,
         dmg:Math.round(10*p.damageMult),tickTimer:0,tickRate:18,
         electric:false,pushForce:4,spinAngle:0});
     }
@@ -1152,7 +1158,7 @@ function fireSwordStorm(){
         vx=Math.cos(driftAngle)*1.5; vy=Math.sin(driftAngle)*1.5;
       }
 
-      G.projs.push({x:sx,y:sy,vx,vy,r:10,type:'swordProj',
+      projPush({x:sx,y:sy,vx,vy,r:10,type:'swordProj',
         dmg, target,
         pierce:lv>=6||mega, explode:lv>=8||mega,
         pierceCount:mega?999:lv>=6?3:0,
@@ -1171,7 +1177,7 @@ function fireSwordStorm(){
       const spd=7+lv*0.5;
       const ca=Math.cos(spread),sa=Math.sin(spread);
       const vx=(d.x*ca-d.y*sa)*spd, vy=(d.x*sa+d.y*ca)*spd;
-      G.projs.push({x:p.x,y:p.y,vx,vy,r:10,type:'swordProj',
+      projPush({x:p.x,y:p.y,vx,vy,r:10,type:'swordProj',
         dmg,target,pierce:lv>=2,ricochet:lv>=3,explode:false,
         pierceCount:lv>=2?2:0,life:200,angle:Math.atan2(vy,vx),trail:[]});
     }
