@@ -238,7 +238,7 @@ const SKILL_UPGRADES={
     {name:'Lightning Lv 3',    icon:'⚡',  desc:'Chains to 4 enemies · +20 dmg'},
     {name:'Lightning Lv 4',    icon:'⚡',  desc:'Larger range · fires every 1.2s'},
     {name:'⛈️ STORM — Lv 5',  icon:'⛈️',  desc:'EVOLVES into Storm! Calls a lightning storm overhead'},
-    {name:'Storm Lv 6',        icon:'⛈️',  desc:'Storm drops 3 bolts · each stuns briefly'},
+    {name:'Storm Lv 6',        icon:'⛈️',  desc:'Storm drops more bolts · hits harder'},
     {name:'Storm Lv 7',        icon:'⛈️',  desc:'+40 dmg per bolt · storm lasts longer',                   minWave:12},
     {name:'Storm Lv 8',        icon:'⛈️',  desc:'Storm drops 5 bolts · chains between enemies',            minWave:18},
     {name:'Storm Lv 9',        icon:'⛈️',  desc:'Supercell: continuous storm, 8 chained mega-bolts',       minWave:25},
@@ -890,9 +890,9 @@ function fireLightning(){
     const boltRate=mega?2:6-elv*0.8;            // lv5=6fr, lv9=2fr between bolts
     const boltCount=mega?8:3+elv;               // lv5=3, lv6=4 ... lv9=8
     const dmg=Math.round((250+elv*150)*p.damageMult*(p.skillDmgMult||1));
-    const stuns=lv>=6;
+    const stuns=false;
     const chains=lv>=8;
-    const radius=mega?W()*1.1:250+elv*70;       // lv9 covers entire screen+
+    const radius=mega?W()*1.1:150+elv*40; // lv5=150, lv6=190, lv7=230, lv8=270, lv9=full screen
 
     // Immediately fire a first strike so the effect is instant
     const firstTargets=[...G.enemies]
