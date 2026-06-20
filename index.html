@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0f0f1e">
+<meta name="description" content="Survive endless waves of slimes! Collect upgrades, evolve your skills, and climb the global leaderboard.">
+<meta property="og:title" content="Slime Survivor">
+<meta property="og:description" content="Survive endless waves of slimes! Collect upgrades, evolve your skills, and climb the global leaderboard.">
+<meta property="og:type" content="website">
 <title>Slime Survivor</title>
 <style>
 *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
@@ -125,8 +129,12 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
   </div>
   <div id="overlay">
     <h2>🟢 Slime Survivor</h2>
-    <p>Move with the joystick or WASD. Weapons orbit you. Collect ❤️ hearts to heal. Level up to unlock upgrades and skills!</p>
-    <button class="btn" id="startBtn">▶ Start Game</button>
+    <p>Survive endless waves of enemies!<br>
+    Move with the <strong>joystick</strong> or <strong>WASD</strong>.<br>
+    Weapons orbit you automatically.<br>
+    Level up to unlock <strong>5 skill trees</strong> — each evolving up to lv9.<br>
+    Collect ❤️ hearts to stay alive.</p>
+    <button class="btn green" id="startBtn">▶ Start Game</button>
     <button class="btn" style="background:#1a1a3a;border:1.5px solid #534AB7;" id="lbBtn">🏆 Leaderboard</button>
   </div>
   <div id="nameEntryBox">
@@ -171,41 +179,43 @@ function norm(v){const m=Math.sqrt(v.x*v.x+v.y*v.y)||1;return{x:v.x/m,y:v.y/m};}
 function lerp(a,b,t){return a+(b-a)*t;}
 
 // ---- UPGRADE DEFINITIONS ----
-// Static upgrades (weapons, skills to unlock, stats, heals)
 const UPGRADES_STATIC=[
-  {id:'sword',    icon:'⚔️', name:'Add Sword',     desc:'Another sword joins your orbit',           type:'weapon',wtype:'sword'},
-  {id:'spear',    icon:'🗡️', name:'Add Spear',     desc:'A fast spear joins your orbit',            type:'weapon',wtype:'spear'},
-  {id:'fireball', icon:'🔥', name:'Fireball',      desc:'Homing fireball every 3s — weak at first', type:'skill', stype:'fireball'},
-  {id:'lightning',icon:'⚡', name:'Lightning',     desc:'Zaps 1 nearby enemy every 2s',             type:'skill', stype:'lightning'},
-  {id:'iceRing',  icon:'❄️', name:'Ice Ring',      desc:'8 weak shards outward every 3s',           type:'skill', stype:'iceRing'},
-  {id:'wind',     icon:'💨', name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',  type:'skill', stype:'wind'},
-  {id:'swordStorm',icon:'🗡️✨',name:'Sword Storm', desc:'Launches 2 homing swords at enemies every 2.5s', type:'skill', stype:'swordStorm'},
-  {id:'speed',    icon:'👟', name:'Move Faster',   desc:'Movement speed +20%',                      type:'stat',  stat:'moveSpeed',amt:0.20},
-  {id:'spin',     icon:'🌀', name:'Faster Spin',   desc:'Weapons spin 30% faster',                  type:'stat',  stat:'spinSpeed',amt:0.30},
-  {id:'hp',       icon:'❤️', name:'Max HP +40',    desc:'Gain 40 max HP and heal 40',               type:'stat',  stat:'hp',       amt:40},
-  {id:'dmg',      icon:'💥', name:'More Damage',   desc:'All damage +25%',                          type:'stat',  stat:'damage',   amt:0.25},
-  {id:'magnet',   icon:'🧲', name:'XP Magnet',     desc:'Collect XP orbs from farther away',        type:'stat',  stat:'magnet',   amt:1.6},
-  {id:'regen',    icon:'💚', name:'Regeneration',  desc:'Restore 4 HP every 5 seconds',             type:'heal',  htype:'regen'},
-  {id:'regenup',  icon:'🌿', name:'Regen Boost',   desc:'Regen +4 HP per tick (stacks)',             type:'heal',  htype:'regenBoost',amt:4},
-  {id:'healOrbs', icon:'✨', name:'Blessed Orbs',  desc:'XP orbs also restore 1 HP',                type:'heal',  htype:'healOrbs'},
-  {id:'lifesteal',icon:'🩸', name:'Life Steal',    desc:'10% of weapon damage heals you',           type:'heal',  htype:'lifesteal'},
-  {id:'vampirism',icon:'🧛', name:'Vampirism',     desc:'Killing enemies restores 5 HP',            type:'heal',  htype:'vampirism'},
-  {id:'heartrate',icon:'💓', name:'Heart Rate',    desc:'Hearts spawn 40% more often',              type:'heal',  htype:'heartRate'},
+  // Weapons
+  {id:'sword',     icon:'⚔️',  name:'Add Sword',     desc:'Another sword joins your orbit',                    type:'weapon', wtype:'sword'},
+  {id:'spear',     icon:'🗡️',  name:'Add Spear',     desc:'A faster, piercing spear joins your orbit',         type:'weapon', wtype:'spear'},
+  // Skills
+  {id:'fireball',  icon:'🔥',  name:'Fireball',      desc:'Homing fireball every 3s',                          type:'skill',  stype:'fireball'},
+  {id:'lightning', icon:'⚡',  name:'Lightning',     desc:'Zaps a nearby enemy every 2s',                      type:'skill',  stype:'lightning'},
+  {id:'iceRing',   icon:'❄️',  name:'Ice Ring',      desc:'8 shards burst outward every 3s',                   type:'skill',  stype:'iceRing'},
+  {id:'wind',      icon:'💨',  name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',           type:'skill',  stype:'wind'},
+  {id:'swordStorm',icon:'🗡️✨', name:'Sword Storm',  desc:'Launches homing swords at enemies every 2.5s',      type:'skill',  stype:'swordStorm'},
+  // Stats — one clear pick per category, no overlap with scaling
+  {id:'magnet',    icon:'🧲',  name:'XP Magnet',     desc:'Collect XP orbs from twice the distance',           type:'stat',   stat:'magnet',    amt:1.6},
+  {id:'heartrate', icon:'💓',  name:'Heart Rate',    desc:'Hearts spawn 50% more often',                       type:'heal',   htype:'heartRate'},
+  // Healing — distinct mechanics only
+  {id:'healOrbs',  icon:'✨',  name:'Soul Drain',    desc:'XP orbs also restore 2 HP when collected',          type:'heal',   htype:'healOrbs'},
 ];
 
-// Infinitely repeatable scaling upgrades — always available, stack with soft caps.
-// Multipliers are smaller per pick to prevent one-shotting everything.
+// Infinitely repeatable scaling upgrades — always in pool, stack with caps
 const SCALING_UPGRADES=[
-  {id:'sc_dmg',    icon:'⚔️🔥', skey:'dmg',    name:'Power Surge',      type:'scaling',
-   desc:(n)=>`All damage ×1.08 · cap ×8 (stack ${n+1})`,               mult:1.08, stat:'damageMult',   cap:8.0},
-  {id:'sc_cdmg',   icon:'⚡💥', skey:'cdmg',   name:'Skill Overcharge',  type:'scaling',
-   desc:(n)=>`Skill damage ×1.10 · cap ×5 (stack ${n+1})`,             mult:1.10, stat:'skillDmgMult', cap:5.0},
-  {id:'sc_hp',     icon:'❤️⬆️', skey:'hp',    name:'Iron Flesh',        type:'scaling',
-   desc:(n)=>`Max HP +80 and heal fully (stack ${n+1})`,                 flat:80,   stat:'hp'},
-  {id:'sc_speed',  icon:'💨⚡', skey:'speed',  name:'Adrenaline Rush',   type:'scaling',
-   desc:(n)=>`Move speed +10%, weapon spin +15% (stack ${n+1})`,        type2:'speedspin'},
-  {id:'sc_cd',     icon:'⏱️🔄', skey:'cd',    name:'Rapid Fire',        type:'scaling',
-   desc:(n)=>`All skill cooldowns −8% · floor 0.3s (stack ${n+1})`,     type2:'cd'},
+  {id:'sc_dmg',    icon:'💥',   skey:'dmg',   name:'Power Surge',      type:'scaling',
+   desc:(n)=>`All damage ×1.10 · cap ×8 (stack ${n+1})`,              mult:1.10, stat:'damageMult',   cap:8.0},
+  {id:'sc_cdmg',   icon:'⚡✨', skey:'cdmg',  name:'Skill Overcharge', type:'scaling',
+   desc:(n)=>`Skill damage ×1.12 · cooldowns −5% (stack ${n+1})`,     mult:1.12, stat:'skillDmgMult', cap:5.0},
+  {id:'sc_hp',     icon:'❤️',  skey:'hp',    name:'Vitality',         type:'scaling',
+   desc:(n)=>`Max HP +60 · fully heals you (stack ${n+1})`,            flat:60,   stat:'hp'},
+  {id:'sc_regen',  icon:'💚',  skey:'regen', name:'Regeneration',     type:'scaling',
+   desc:(n)=>`Restore ${4+(n*4)} HP every 5 seconds (stack ${n+1})`,  type2:'regen', amt:4},
+  {id:'sc_speed',  icon:'👟',   skey:'speed', name:'Swift Feet',        type:'scaling',
+   desc:(n)=>`Move speed +8% · cap ×2.5 (stack ${n+1})`,               type2:'speed'},
+  {id:'sc_spin',   icon:'🌀',   skey:'spin',  name:'Blade Frenzy',      type:'scaling',
+   desc:(n)=>`Weapon spin speed +15% (stack ${n+1})`,                   type2:'spin'},
+  {id:'sc_cd',     icon:'⏱️',  skey:'cd',    name:'Rapid Fire',       type:'scaling',
+   desc:(n)=>`All skill cooldowns −8% · min 0.3s (stack ${n+1})`,     type2:'cd'},
+  {id:'sc_lifesteal',icon:'🩸', skey:'ls',   name:'Life Steal',       type:'scaling',
+   desc:(n)=>`Heal ${8+(n*4)}% of weapon damage dealt (stack ${n+1})`,type2:'lifesteal', amt:0.04},
+  {id:'sc_vamp',   icon:'🧛',  skey:'vamp',  name:'Vampirism',        type:'scaling',
+   desc:(n)=>`Kill any enemy to restore ${5+(n*3)} HP (stack ${n+1})`,type2:'vampirism', amt:3},
 ];
 
 // Per-skill level-up cards. Levels 1-4 = base skill growth. Level 5 = EVOLUTION unlock.
@@ -280,8 +290,9 @@ function newGame(){
     spinSpeed:1.0,damageMult:1.0,magnetRange:1.0,
     skillDmgMult:1.0,  // separate multiplier for skill damage only
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
-    scalingStacks:{dmg:0,cdmg:0,hp:0,speed:0,cd:0}, // track stacks per scaling upgrade
-    regenRate:0,regenTickTimer:0,lifesteal:false,vampirism:false,healOrbs:false,heartRateBoost:1,
+    scalingStacks:{dmg:0,cdmg:0,hp:0,regen:0,speed:0,spin:0,cd:0,ls:0,vamp:0},
+    regenRate:0,regenTickTimer:0,healOrbs:false,heartRateBoost:1,
+    lifestealPct:0,vampirismAmt:0,
     xp:0,xpNext:20,level:1,
   };
   G={
@@ -373,7 +384,7 @@ function update(dt){
           const dmg=Math.round((w.type==='spear'?35:28)*p.damageMult); // was 18/14
           hitEnemy(e,dmg);
           w.hitCD[e.id]=12; // slightly faster hit rate too
-          if(p.lifesteal) healPlayer(Math.max(1,Math.round(dmg*0.1)),true);
+          if(p.lifestealPct) healPlayer(Math.max(1,Math.round(dmg*p.lifestealPct)),true);
         }
       });
     });
@@ -405,8 +416,15 @@ function update(dt){
 
   // projectiles (fireball, ice, meteor, blizzard, stormBolt)
   const newProjs=[];
+  // Snapshot projs before filtering — but preserve any items added by fireSwordStorm etc.
+  // Items added to G.projs during skill dispatch (before this filter) must be kept.
+  const preFilterAdded=G.projs.filter(pr=>!projs.includes(pr)); // items added after snapshot
   G.projs=projs.filter(pr=>{
-    if(pr.type==='wind'||pr.type==='tornado') return true;
+    // These types are handled by their own dedicated filter blocks below — don't touch them here
+    if(pr.type==='wind'||pr.type==='tornado'||
+       pr.type==='stormCloud'||pr.type==='boltFlash'||pr.type==='boltChain'||
+       pr.type==='blizzardAura'||pr.type==='iceShockwave'||pr.type==='fireZone'||
+       pr.type==='swordProj') return true;
 
     // ---- METEOR — falls from top ----
     if(pr.type==='meteor'){
@@ -503,6 +521,7 @@ function update(dt){
 
   });
   newProjs.forEach(p=>G.projs.push(p));
+  preFilterAdded.forEach(pr=>{ if(!G.projs.includes(pr)) G.projs.push(pr); });
 
   // sword projectiles — own filter block with length-aware hitbox
   G.projs=G.projs.filter(pr=>{
@@ -522,18 +541,21 @@ function update(dt){
       pr.target=G.enemies.reduce((a,b)=>dist(a,{x:pr.x,y:pr.y})<dist(b,{x:pr.x,y:pr.y})?a:b);
     }
     // hit detection — use sword length as effective hit radius
-    const hitR=pr.r*2.2; // sword is ~2x longer than it is wide
+    const hitR=pr.r*2.2;
     let hit=false;
-    for(let i=0;i<enemies.length;i++){
-      const e=enemies[i];
-      if(dist(pr,e)<hitR+e.r){
+    // DEBUG: use G.enemies not stale snapshot
+    const liveEnemies=G.enemies;
+    for(let i=0;i<liveEnemies.length;i++){
+      const e=liveEnemies[i];
+      const d=dist(pr,e);
+      if(d<hitR+e.r){
         hitEnemy(e,Math.round(pr.dmg));
         if(pr.explode){
-          enemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<70)hitEnemy(ne,Math.round(pr.dmg*0.5));});
+          liveEnemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<70)hitEnemy(ne,Math.round(pr.dmg*0.5));});
           spawnBurst(pr.x,pr.y,'#c8a040',12);
         }
         if(pr.ricochet&&pr.pierceCount>0){
-          const next=enemies.filter(ne=>ne!==e).sort((a,b)=>dist(a,pr)-dist(b,pr))[0];
+          const next=liveEnemies.filter(ne=>ne!==e).sort((a,b)=>dist(a,pr)-dist(b,pr))[0];
           if(next){pr.target=next;pr.pierceCount--;hit=false;break;}
         }
         if(pr.pierce&&pr.pierceCount>0){pr.pierceCount--;break;}
@@ -543,7 +565,6 @@ function update(dt){
     return true;
   });
 
-  // wind pulses — AOE push ring
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='wind') return true;
     pr.life-=dt; pr.radius+=pr.growRate*dt;
@@ -579,24 +600,6 @@ function update(dt){
     return true;
   });
 
-  // blade tempest aura (Infinite Tempest lv9)
-  G.projs=G.projs.filter(pr=>{
-    if(pr.type!=='bladeTempestAura') return true;
-    pr.spinAngle+=dt*0.12;
-    const stLv=G.p.skillLevels.swordStorm||0;
-    if(stLv<9){ return false; }
-    pr.tickTimer-=dt;
-    if(pr.tickTimer<=0){
-      pr.tickTimer=pr.tickRate;
-      enemies.forEach(e=>{
-        if(dist(e,G.p)<pr.r+e.r){
-          hitEnemy(e,Math.round(pr.dmgPerTick));
-          spawnBurst(e.x,e.y,'#c8a040',3);
-        }
-      });
-    }
-    return true;
-  });
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='blizzardAura') return true;
     pr.spinAngle+=dt*0.04;
@@ -749,7 +752,7 @@ function update(dt){
   G.orbs=orbs.filter(o=>{
     const d=dist(o,p);
     if(d<pickRange){o.x=lerp(o.x,p.x,0.18);o.y=lerp(o.y,p.y,0.18);}
-    if(d<p.r+o.r+2){addXp(o.val);if(p.healOrbs)healPlayer(1,false);return false;}
+    if(d<p.r+o.r+2){addXp(o.val);if(p.healOrbs)healPlayer(2,false);return false;}
     return true;
   });
 
@@ -1087,79 +1090,64 @@ function fireWind(){
 function fireSwordStorm(){
   const p=G.p;
   const lv=p.skillLevels.swordStorm||0;
-  const evolved=lv>=5; // blade tempest tier
+  const evolved=lv>=5;
 
   if(evolved){
-    // ---- BLADE TEMPEST ----
-    const elv=lv-5; // 0-4
-    const mega=lv>=9; // Infinite Tempest
+    const elv=lv-5;
+    const mega=lv>=9;
 
-    if(mega){
-      // Infinite Tempest — persistent spinning blade zone around player
-      G.projs=G.projs.filter(pr=>pr.type!=='bladeTempestAura');
-      G.projs.push({
-        type:'bladeTempestAura',
-        r:120+elv*20,
-        dmgPerTick:Math.round(200*p.damageMult*(p.skillDmgMult||1)),
-        tickTimer:0, tickRate:8,
-        spinAngle:0, bladesCount:12,
-        life:999 // refreshed each cast
-      });
-      // Also fire a volley outward
+    // Persistent pool — always maintain N swords floating/homing
+    const poolSize=mega?24:8+elv*3; // lv5=8, lv6=11, lv7=14, lv8=17, lv9=24
+    const aliveSwords=G.projs.filter(pr=>pr.type==='swordProj').length;
+    const needed=poolSize-aliveSwords;
+    if(needed<=0) return;
+
+    const dmg=mega
+      ? Math.round(900*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((500+elv*200)*p.damageMult*(p.skillDmgMult||1));
+
+    const hasEnemies=G.enemies&&G.enemies.length>0;
+    const sorted=hasEnemies?[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p)):[];
+
+    for(let i=0;i<needed;i++){
+      const spawnAngle=rnd(0,Math.PI*2);
+      const spawnDist=50+rnd(0,40);
+      const sx=p.x+Math.cos(spawnAngle)*spawnDist;
+      const sy=p.y+Math.sin(spawnAngle)*spawnDist;
+
+      let vx,vy,target=null;
+      if(hasEnemies){
+        target=sorted[i%sorted.length];
+        const d=norm({x:target.x-sx,y:target.y-sy});
+        vx=d.x*8; vy=d.y*8;
+      } else {
+        // Drift slowly near player when no enemies
+        const driftAngle=rnd(0,Math.PI*2);
+        vx=Math.cos(driftAngle)*1.5; vy=Math.sin(driftAngle)*1.5;
+      }
+
+      G.projs.push({x:sx,y:sy,vx,vy,r:10,type:'swordProj',
+        dmg, target,
+        pierce:lv>=6||mega, explode:lv>=8||mega,
+        pierceCount:mega?999:lv>=6?3:0,
+        life:mega?400:280,
+        angle:Math.atan2(vy,vx), trail:[]});
     }
-
-    const count=mega?16:8+elv*2;
-    const dmg=Math.round((500+elv*200)*p.damageMult*(p.skillDmgMult||1)); // lv5=500, lv9=1300
-    const pierce=lv>=6;
-    const explode=lv>=8;
-
-    if(G.enemies.length===0) return;
-    // Launch swords toward nearest enemies, spread out
-    const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
-    for(let i=0;i<count;i++){
-      const target=sorted[i%Math.min(sorted.length,count)];
-      const angle=(Math.PI*2/count)*i;
-      // Orbit briefly then home — launch from a spinning ring first
-      const orbitR=30+elv*5;
-      const sx=p.x+Math.cos(angle)*orbitR;
-      const sy=p.y+Math.sin(angle)*orbitR;
-      const d=norm({x:target.x-sx,y:target.y-sy});
-      G.projs.push({
-        x:sx, y:sy,
-        vx:d.x*6, vy:d.y*6,
-        r:8+elv*1.5, type:'swordProj',
-        dmg, target, pierce, explode,
-        pierceCount:pierce?3:0,
-        life:200, angle,
-        trail:[]
-      });
-    }
-
   } else {
-    // ---- SWORD STORM (base) ----
-    if(G.enemies.length===0) return;
-    const count=2+lv*2;         // lv0=2, lv1=4, lv2=6, lv3=8, lv4=10
-    const dmg=Math.round((120+lv*60)*p.damageMult*(p.skillDmgMult||1)); // lv0=120, lv4=360
-    const pierce=lv>=2;
-    const ricochet=lv>=3;
+    if(!G.enemies||G.enemies.length===0) return;
+    const count=1+lv;
+    const dmg=Math.round((35+lv*30)*p.damageMult*(p.skillDmgMult||1));
     const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
     for(let i=0;i<count;i++){
       const target=sorted[i%Math.min(sorted.length,count)];
-      const spread=rnd(-0.25,0.25);
+      const spread=rnd(-0.15,0.15);
       const d=norm({x:target.x-p.x,y:target.y-p.y});
-      const spd=5.5+lv*0.3;
-      const ca=Math.cos(spread), sa=Math.sin(spread);
-      G.projs.push({
-        x:p.x, y:p.y,
-        vx:(d.x*ca-d.y*sa)*spd,
-        vy:(d.x*sa+d.y*ca)*spd,
-        r:7+lv*0.8, type:'swordProj',
-        dmg, target, pierce,
-        pierceCount:pierce?2:0,
-        ricochet, explode:false,
-        life:180, angle:Math.atan2(d.y,d.x),
-        trail:[]
-      });
+      const spd=7+lv*0.5;
+      const ca=Math.cos(spread),sa=Math.sin(spread);
+      const vx=(d.x*ca-d.y*sa)*spd, vy=(d.x*sa+d.y*ca)*spd;
+      G.projs.push({x:p.x,y:p.y,vx,vy,r:10,type:'swordProj',
+        dmg,target,pierce:lv>=2,ricochet:lv>=3,explode:false,
+        pierceCount:lv>=2?2:0,life:200,angle:Math.atan2(vy,vx),trail:[]});
     }
   }
 }
@@ -1294,7 +1282,7 @@ function killEnemy(e){
       });
     }
   });
-  if(G.p.vampirism) healPlayer(5,true);
+  if(G.p.vampirismAmt) healPlayer(G.p.vampirismAmt,true);
 }
 
 function healPlayer(amt,show){
@@ -1459,16 +1447,17 @@ function applyUpgrade(u){
     const t2=u.type2||u.stat;
     if(t2==='damageMult') p.damageMult=Math.min((u.cap||8),p.damageMult*u.mult);
     else if(t2==='skillDmgMult'){p.skillDmgMult=Math.min((u.cap||5),(p.skillDmgMult||1)*u.mult);p.cdReduction=(p.cdReduction||1)*0.95;}
-    else if(t2==='hp'){p.maxHp+=u.flat;p.hp=p.maxHp;}
-    else if(t2==='speedspin'){p.moveSpeed*=1.10;p.spinSpeed*=1.15;}
+    else if(t2==='hp'){p.maxHp+=(u.flat||60);p.hp=p.maxHp;}
+    else if(t2==='regen'){p.regenRate=(p.regenRate||0)+(u.amt||4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
+    else if(t2==='speedspin'){p.moveSpeed*=1.12;p.spinSpeed*=1.18;}
+    else if(t2==='speed'){p.moveSpeed=Math.min(p.moveSpeed*1.08, 2.0*5.0);} // cap at 5× base (2.0*2.5=5.0)
+    else if(t2==='spin'){p.spinSpeed*=1.15;}
     else if(t2==='cd'){p.cdReduction=Math.max(0.25,(p.cdReduction||1)*0.92);}
+    else if(t2==='lifesteal'){p.lifestealPct=(p.lifestealPct||0.05)+(u.amt||0.04);}
+    else if(t2==='vampirism'){p.vampirismAmt=(p.vampirismAmt||5)+(u.amt||3);}
   } else if(u.type==='heal'){
-    if(u.htype==='regen'){p.regenRate=Math.max(p.regenRate,4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
-    else if(u.htype==='regenBoost'){p.regenRate+=(u.amt||4);if(p.regenTickTimer<=0)p.regenTickTimer=5;}
-    else if(u.htype==='healOrbs') p.healOrbs=true;
-    else if(u.htype==='lifesteal') p.lifesteal=true;
-    else if(u.htype==='vampirism') p.vampirism=true;
-    else if(u.htype==='heartRate') p.heartRateBoost*=0.6;
+    if(u.htype==='healOrbs') p.healOrbs=true;
+    else if(u.htype==='heartRate') p.heartRateBoost=(p.heartRateBoost||1)*0.55;
   }
   // consume one pending upgrade — remove the front of the queue
   G.pendingUpgrades=Math.max(0,(G.pendingUpgrades||1)-1);
@@ -1547,17 +1536,14 @@ async function fetchScores(){
 }
 
 async function clearScores(password){
-  console.log('Password entered:', JSON.stringify(password));
   if(password.trim() !== 'slimeadmin2026') return false;
   try{
     const res=await fetch(SB_URL+'/scores?id=gt.0',{
       method:'DELETE',
       headers:{...SB_HEADERS,'Prefer':'return=minimal'}
     });
-    const text=await res.text();
-    console.log('DELETE status:',res.status,'body:',text);
     return res.ok||res.status===204||res.status===200;
-  } catch(e){ console.log('DELETE error:',e); return false; }
+  } catch(e){ return false; }
 }
 
 async function submitScore(entry){
@@ -1624,6 +1610,8 @@ function endGame(){
   setTimeout(()=>document.getElementById('nameInput').focus(),100);
 
   const submit=async(name)=>{
+    if(entry._submitted) return; // prevent double-submit
+    entry._submitted=true;
     entry.name=name||'Anonymous';
     nb.style.display='none';
     // show leaderboard immediately with a loading state, then submit and refresh
@@ -2013,38 +2001,16 @@ function drawProj(pr){
     ctx.beginPath();ctx.arc(pr.cx,pr.cy,Math.max(0,pr.radius-4),0,Math.PI*2);ctx.stroke();
     ctx.restore(); return;
   }
-  // blade tempest aura (Infinite Tempest lv9)
-  if(pr.type==='bladeTempestAura'){
-    const pp=G.p;
-    ctx.save();
-    ctx.globalAlpha=0.35;
-    const grad=ctx.createRadialGradient(pp.x,pp.y,pr.r*0.5,pp.x,pp.y,pr.r);
-    grad.addColorStop(0,'rgba(200,160,40,0)');
-    grad.addColorStop(1,'rgba(200,160,40,0.25)');
-    ctx.fillStyle=grad;
-    ctx.beginPath();ctx.arc(pp.x,pp.y,pr.r,0,Math.PI*2);ctx.fill();
-    ctx.globalAlpha=0.7;
-    for(let i=0;i<(pr.bladesCount||12);i++){
-      const a=(pr.spinAngle||0)+(Math.PI*2/(pr.bladesCount||12))*i;
-      const sx=pp.x+Math.cos(a)*pr.r;
-      const sy=pp.y+Math.sin(a)*pr.r;
-      ctx.save();ctx.translate(sx,sy);ctx.rotate(a+Math.PI/4);
-      ctx.fillStyle='#FFD700';ctx.fillRect(-2,-10,4,20);
-      ctx.fillStyle='#c8a040';ctx.fillRect(-5,-2,10,4);
-      ctx.restore();
-    }
-    ctx.restore(); return;
-  }
 
   // sword projectile
   if(pr.type==='swordProj'){
     ctx.save();
-    // smooth fading wake trail — drawn before the sword
+    // wake trail
     if(pr.trail&&pr.trail.length>1){
       for(let i=1;i<pr.trail.length;i++){
         const t=i/pr.trail.length;
-        ctx.globalAlpha=t*0.5;
-        ctx.strokeStyle='rgba(255,230,100,0.8)';
+        ctx.globalAlpha=t*0.45;
+        ctx.strokeStyle='rgba(255,230,80,0.9)';
         ctx.lineWidth=3*t;
         ctx.lineCap='round';
         ctx.beginPath();
@@ -2055,52 +2021,34 @@ function drawProj(pr){
     }
     ctx.globalAlpha=1;
     ctx.translate(pr.x,pr.y);
-    // rotate so the sword tip points in the direction of travel
-    ctx.rotate((pr.angle||0)-Math.PI/2);
-
-    // fixed size — 28px long, clearly visible
-    const L=28, W=5;
+    ctx.rotate((pr.angle||0)+Math.PI/2); // tip points in travel direction
+    const SL=28, SW=5; // sword length, sword width — renamed to avoid shadowing W()
     // blade body
     ctx.fillStyle='#d8d8e8';
     ctx.beginPath();
-    ctx.moveTo(-W*0.5,-L*0.55);
-    ctx.lineTo(W*0.5,-L*0.55);
-    ctx.lineTo(W*0.3, L*0.1);
-    ctx.lineTo(-W*0.3,L*0.1);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(-SW*0.5, -SL*0.5);
+    ctx.lineTo( SW*0.5, -SL*0.5);
+    ctx.lineTo( SW*0.3,  SL*0.1);
+    ctx.lineTo(-SW*0.3,  SL*0.1);
+    ctx.closePath(); ctx.fill();
     // blade tip
     ctx.fillStyle='#ffffff';
     ctx.beginPath();
-    ctx.moveTo(-W*0.45,-L*0.55);
-    ctx.lineTo(W*0.45,-L*0.55);
-    ctx.lineTo(0,-L);
-    ctx.closePath();
-    ctx.fill();
-    // fuller (centre groove shine)
-    ctx.strokeStyle='rgba(200,220,255,0.5)';
-    ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.moveTo(0,-L*0.5);ctx.lineTo(0,L*0.08);ctx.stroke();
+    ctx.moveTo(-SW*0.4,-SL*0.5);
+    ctx.lineTo( SW*0.4,-SL*0.5);
+    ctx.lineTo(0,-SL);
+    ctx.closePath(); ctx.fill();
     // crossguard
     ctx.fillStyle='#FFD700';
-    ctx.beginPath();
-    ctx.moveTo(-L*0.32,L*0.08);
-    ctx.lineTo(L*0.32,L*0.08);
-    ctx.lineTo(L*0.28,L*0.18);
-    ctx.lineTo(-L*0.28,L*0.18);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillRect(-SL*0.3, SL*0.08, SL*0.6, SL*0.12);
     // handle
     ctx.fillStyle='#7a3a10';
-    ctx.fillRect(-W*0.35,L*0.18,W*0.7,L*0.28);
+    ctx.fillRect(-SW*0.35, SL*0.2, SW*0.7, SL*0.28);
     // pommel
     ctx.fillStyle='#cc9933';
-    ctx.beginPath();ctx.arc(0,L*0.5,W*0.55,0,Math.PI*2);ctx.fill();
-    // gold glow on blade
-    ctx.globalAlpha=0.25;
-    ctx.fillStyle='rgba(255,220,80,0.6)';
-    ctx.beginPath();ctx.ellipse(0,-L*0.3,W*0.8,L*0.5,0,0,Math.PI*2);ctx.fill();
-
+    ctx.beginPath();
+    ctx.arc(0, SL*0.5, SW*0.6, 0, Math.PI*2);
+    ctx.fill();
     ctx.restore(); return;
   }
 
