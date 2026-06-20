@@ -405,9 +405,6 @@ function update(dt){
     const raw=Math.max(0.3, b/(1+lvFactor*0.18));
     return raw*(p.cdReduction||1); // Rapid Fire stacking reduces this
   }
-  // Use a staging array during skill dispatch so no skill can accidentally
-  // clobber projs pushed by earlier skills (e.g. fireIceRing replaces G.projs)
-  G._staging=[];
   p.skills.forEach(sk=>{
     if(G.skillCD[sk]<=0){
       G.skillCD[sk]=getCD(sk);
@@ -418,14 +415,12 @@ function update(dt){
       if(sk==='swordStorm') fireSwordStorm();
     }
   });
-  // Flush staging into G.projs
-  if(G._staging.length) G._staging.forEach(pr=>G.projs.push(pr));
-  G._staging=null;
 
+  // Re-snapshot projs AFTER skill dispatch so newly pushed projs are included
+  const projs2=[...G.projs];
   // projectiles (fireball, ice, meteor, blizzard)
   const newProjs=[];
-  const preFilterAdded=G.projs.filter(pr=>!projs.includes(pr));
-  G.projs=projs.filter(pr=>{
+  G.projs=projs2.filter(pr=>{
     // These types are handled by their own dedicated filter blocks below — don't touch them here
     if(pr.type==='wind'||pr.type==='tornado'||
        pr.type==='stormCloud'||pr.type==='boltFlash'||pr.type==='boltChain'||
@@ -456,7 +451,7 @@ function update(dt){
             dmg:Math.round(80*G.p.damageMult),  // 80 per tick vs old 20
             tickTimer:0,tickRate:10});           // 6 ticks/sec vs old 3
         }
-        G.shakeTimer=pr.mega?8:3; // subtle shake only
+        G.shakeTimer=pr.mega?4:1;
         return false;
       }
       return true;
@@ -466,6 +461,7 @@ function update(dt){
     if(pr.type==='blizzard'){
       pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
       if(pr.life<=0) return false;
+      if(pr.spawnDelay>0){ pr.spawnDelay-=dt; return true; }
       for(let e of enemies){
         if(dist(pr,e)<pr.r+e.r){
           const wasFrozen=e.freezeTimer>0;
@@ -485,6 +481,8 @@ function update(dt){
 
     pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
     if(pr.life<=0) return false;
+    // spawnDelay: skip hit detection for first N frames so shards travel outward visibly
+    if(pr.spawnDelay>0){ pr.spawnDelay-=dt; return true; }
     if(pr.type==='fireball'&&pr.target&&pr.target.hp>0){
       const d=norm({x:pr.target.x-pr.x,y:pr.target.y-pr.y});
       pr.vx=lerp(pr.vx,d.x*5.5,0.1); pr.vy=lerp(pr.vy,d.y*5.5,0.1);
@@ -524,11 +522,10 @@ function update(dt){
         return false;
       }
     }
+    return true; // survive this frame
 
   });
   newProjs.forEach(p=>G.projs.push(p));
-  preFilterAdded.forEach(pr=>{ if(!G.projs.includes(pr)) G.projs.push(pr); });
-
   // sword projectiles — own filter block with length-aware hitbox
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='swordProj') return true;
@@ -832,8 +829,6 @@ function update(dt){
 }
 
 
-// Helper: push to staging array during skill dispatch, otherwise directly to G.projs
-function projPush(pr){ if(G._staging) G._staging.push(pr); else G.projs.push(pr); }
 // ---- SKILLS ----
 function fireFireball(){
   const p=G.p;
@@ -856,7 +851,7 @@ function fireFireball(){
       const splashR=mega?260:130+elv*30;
       const r=mega?44:24+elv*5;
       const vy=12+elv*2;
-      projPush({
+      G.projs.push({
         x:tx+rnd(-100,100), y:-80,
         vx:rnd(-0.3,0.3), vy,
         r, type:'meteor', dmg, splashR, life:300,
@@ -875,9 +870,9 @@ function fireFireball(){
     const splashR=28+lv*15;
     const spd=4.8+lv*0.4;
     const r=7+lv*1.5;
-    projPush({x:p.x,y:p.y,vx:d.x*spd,vy:d.y*spd,r,
+    G.projs.push({x:p.x,y:p.y,vx:d.x*spd,vy:d.y*spd,r,
       type:'fireball',dmg,splashR,life:150+lv*20,target:t,
-      splitOnImpact:lv>=3});
+      splitOnImpact:lv>=3, spawnDelay:4});
   }
 }
 
@@ -907,15 +902,15 @@ function fireLightning(){
     firstTargets.forEach((t,i)=>{
       hitEnemy(t, Math.round(dmg));
       if(stuns) t.slowTimer=50;
-      projPush({type:'boltFlash', x:t.x, y:t.y, life:12, maxLife:12,
+      G.projs.push({type:'boltFlash', x:t.x, y:t.y, life:12, maxLife:12,
         col:mega?'#ffffff':'#FFE94D', glow:mega?'rgba(200,180,255,0.6)':'rgba(255,220,80,0.5)'});
       if(chains && i<firstTargets.length-1){
         const next=firstTargets[i+1];
-        projPush({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y, life:10, maxLife:10});
+        G.projs.push({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y, life:10, maxLife:10});
       }
     });
 
-    projPush({
+    G.projs.push({
       type:'stormCloud',
       cx:p.x, cy:p.y,
       life:stormDur,
@@ -958,40 +953,40 @@ function fireIceRing(){
       const snapshot=[...G.enemies];
       snapshot.forEach(e=>{
         if(e.hp>0){
-          e.freezeTimer=720; // ~12 seconds frozen
+          e.freezeTimer=180; // 3 seconds frozen (was 12)
           hitEnemy(e,azDmg);
         }
       });
 
-      // Five expanding shockwave rings
-      for(let ring=0;ring<5;ring++){
-        projPush({
+      // Three expanding shockwave rings (was 5)
+      for(let ring=0;ring<3;ring++){
+        G.projs.push({
           type:'iceShockwave',
           cx:p.x, cy:p.y,
           radius:0,
-          maxLife:55+ring*14,
-          growRate:(Math.max(W(),H())*1.5)/(55+ring*14),
-          life:55+ring*14,
-          delay:ring*10,
-          col:`rgba(${160-ring*25},${220+ring*14},255,1)`
+          maxLife:55+ring*18,
+          growRate:(Math.max(W(),H())*1.5)/(55+ring*18),
+          life:55+ring*18,
+          delay:ring*12,
+          col:`rgba(${160-ring*30},${220+ring*18},255,1)`
         });
       }
 
-      G.flashTimer=35;
-      G.shakeTimer=45;
-      spawnBurst(p.x,p.y,'#a0d8ef',80);
-      spawnBurst(p.x,p.y,'#ffffff',40);
+      G.flashTimer=8;
+      G.shakeTimer=6;
+      spawnBurst(p.x,p.y,'#a0d8ef',20); // was 80
+      spawnBurst(p.x,p.y,'#ffffff',12); // was 40
 
-      // Giant blizzard aura — huge radius, high damage, lasts 15 seconds
-      G.projs=G.projs.filter(pr=>pr.type!=='blizzardAura');
-      projPush({
+      // Blizzard aura — reasonable radius, not screen-wide
+      for(let _i=G.projs.length-1;_i>=0;_i--){if(G.projs[_i].type==='blizzardAura')G.projs.splice(_i,1);}
+      G.projs.push({
         type:'blizzardAura',
-        r:Math.max(W(),H())*0.75,
-        dmgPerFrame:120/60,  // 120 dmg/sec — kills fast
-        freezeDur:999,
+        r:220,               // fixed 220px radius — visible but not screen-wide
+        dmgPerFrame:80/60,   // 80 dmg/sec
+        freezeDur:180,       // 3 seconds freeze (not 12)
         spinAngle:0,
         absoluteZero:true,
-        azLife:900
+        azLife:360           // aura lasts 6 seconds (was 15)
       });
       return;
     }
@@ -1004,17 +999,17 @@ function fireIceRing(){
     const splashOnFreeze=lv>=7;
     for(let i=0;i<waveShards;i++){
       const a=(Math.PI*2/waveShards)*i+rnd(-0.08,0.08);
-      projPush({x:p.x,y:p.y,
+      G.projs.push({x:p.x,y:p.y,
         vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
         r:10+elv*2, type:'blizzard', dmg, freezeDur,
-        life:100+elv*20, splashOnFreeze});
+        life:100+elv*20, splashOnFreeze, spawnDelay:4});
     }
 
     // 2) Persistent blizzard aura — much higher damage
-    G.projs=G.projs.filter(pr=>pr.type!=='blizzardAura');
+    for(let _i=G.projs.length-1;_i>=0;_i--){if(G.projs[_i].type==='blizzardAura')G.projs.splice(_i,1);}
     const auraR=130+elv*35;
     const dmgPerSec=(60+elv*30)*(p.skillDmgMult||1)*(p.damageMult||1);
-    projPush({
+    G.projs.push({
       type:'blizzardAura',
       r:auraR,
       dmgPerFrame:dmgPerSec/60,
@@ -1034,8 +1029,8 @@ function fireIceRing(){
     const splashOnFreeze=lv>=4;
     for(let i=0;i<shards;i++){
       const a=(Math.PI*2/shards)*i;
-      projPush({x:p.x,y:p.y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
-        r:projR,type:'ice',dmg,freezeDur,slowDur,life,splashOnFreeze});
+      G.projs.push({x:p.x,y:p.y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
+        r:projR,type:'ice',dmg,freezeDur,slowDur,life,splashOnFreeze,spawnDelay:4});
     }
   }
 }
@@ -1077,7 +1072,7 @@ function fireWind(){
     }
 
     anchors.forEach(anchor=>{
-      projPush({type:'tornado',
+      G.projs.push({type:'tornado',
         cx:anchor.cx, cy:anchor.cy,
         radius:tornadoR, life, dmg,
         tickTimer:0, tickRate:mega?6:10,   // faster tick = more DPS
@@ -1088,7 +1083,7 @@ function fireWind(){
 
     // Also fire an outward wind burst first to push enemies INTO the tornadoes
     const burstR=100+lv*20;
-    projPush({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:burstR/15,
+    G.projs.push({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:burstR/15,
       maxR:burstR,life:15,force:6,dealsDmg:false,dmg:0,shredArmour:false});
     spawnWindParticles(p.x,p.y,burstR);
 
@@ -1099,7 +1094,7 @@ function fireWind(){
     const dealsDmg=lv>=1;
     const dmg=dealsDmg?Math.round(15*lv*p.damageMult):0;
     const shredArmour=lv>=3;
-    projPush({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:radius/18,
+    G.projs.push({type:'wind',cx:p.x,cy:p.y,radius:p.r,growRate:radius/18,
       maxR:radius,life:18,force,dealsDmg,dmg,shredArmour});
     spawnWindParticles(p.x,p.y,radius);
     if(lv>=4){
@@ -1110,7 +1105,7 @@ function fireWind(){
         const d=norm({x:nearest.x-p.x,y:nearest.y-p.y});
         cx=nearest.x+d.x*20; cy=nearest.y+d.y*20;
       }
-      projPush({type:'tornado',cx,cy,radius:40,life:240,
+      G.projs.push({type:'tornado',cx,cy,radius:40,life:240,
         dmg:Math.round(10*p.damageMult),tickTimer:0,tickRate:18,
         electric:false,pushForce:4,spinAngle:0});
     }
@@ -1158,7 +1153,7 @@ function fireSwordStorm(){
         vx=Math.cos(driftAngle)*1.5; vy=Math.sin(driftAngle)*1.5;
       }
 
-      projPush({x:sx,y:sy,vx,vy,r:10,type:'swordProj',
+      G.projs.push({x:sx,y:sy,vx,vy,r:10,type:'swordProj',
         dmg, target,
         pierce:lv>=6||mega, explode:lv>=8||mega,
         pierceCount:mega?999:lv>=6?3:0,
@@ -1177,7 +1172,7 @@ function fireSwordStorm(){
       const spd=7+lv*0.5;
       const ca=Math.cos(spread),sa=Math.sin(spread);
       const vx=(d.x*ca-d.y*sa)*spd, vy=(d.x*sa+d.y*ca)*spd;
-      projPush({x:p.x,y:p.y,vx,vy,r:10,type:'swordProj',
+      G.projs.push({x:p.x,y:p.y,vx,vy,r:10,type:'swordProj',
         dmg,target,pierce:lv>=2,ricochet:lv>=3,explode:false,
         pierceCount:lv>=2?2:0,life:200,angle:Math.atan2(vy,vx),trail:[]});
     }
@@ -1699,7 +1694,7 @@ function render(){
   ctx.clearRect(0,0,W(),H());
   ctx.save();
   if(G&&G.shakeTimer>0){
-    const s=G.shakeTimer*0.6;
+    const s=G.shakeTimer*0.25;
     ctx.translate(rnd(-s,s),rnd(-s,s));
   }
   drawBg();
@@ -1707,7 +1702,7 @@ function render(){
   // Absolute Zero white flash overlay
   if(G.flashTimer>0){
     ctx.save();
-    ctx.globalAlpha=Math.min(1, G.flashTimer/15)*0.85;
+    ctx.globalAlpha=Math.min(1, G.flashTimer/15)*0.4;
     ctx.fillStyle='#c8eeff';
     ctx.fillRect(0,0,W(),H());
     ctx.restore();
