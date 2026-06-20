@@ -212,6 +212,8 @@ const SCALING_UPGRADES=[
    desc:(n)=>`Weapon spin speed +15% (stack ${n+1})`,                   type2:'spin'},
   {id:'sc_cd',     icon:'⏱️',  skey:'cd',    name:'Rapid Fire',       type:'scaling',
    desc:(n)=>`All skill cooldowns −8% · min 0.3s (stack ${n+1})`,     type2:'cd'},
+  {id:'sc_magnet', icon:'🧲',  skey:'magnet',name:'XP Magnet',         type:'scaling',
+   desc:(n)=>`XP pickup range ×1.4 (stack ${n+1})`,                   type2:'magnet'},
   {id:'sc_lifesteal',icon:'🩸', skey:'ls',   name:'Life Steal',       type:'scaling',
    desc:(n)=>`Heal ${8+(n*4)}% of weapon damage dealt (stack ${n+1})`,type2:'lifesteal', amt:0.04},
   {id:'sc_vamp',   icon:'🧛',  skey:'vamp',  name:'Vampirism',        type:'scaling',
@@ -305,6 +307,7 @@ function newGame(){
     skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0},
     running:true,upgrading:false, shakeTimer:0, flashTimer:0,
     passiveXpTimer:0, pendingUpgrades:0, pendingChoices:[],
+    swordProjCount:0,
   };
   paused=false;
   document.getElementById('pauseScreen').style.display='none';
@@ -564,6 +567,7 @@ function update(dt){
     }
     return true;
   });
+  G.swordProjCount=G.projs.filter(pr=>pr.type==='swordProj').length;
 
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='wind') return true;
@@ -602,7 +606,8 @@ function update(dt){
 
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='blizzardAura') return true;
-    pr.spinAngle+=dt*0.04;
+    // spinAngle still used for pulse calculation in draw
+    pr.spinAngle=(pr.spinAngle||0)+dt*0.04;
     const blizzLv=G.p.skillLevels.iceRing||0;
     if(blizzLv<5){ return false; }
     // Absolute Zero aura: shrink back toward normal size over azLife
@@ -613,7 +618,7 @@ function update(dt){
       if(pr.azLife<=0){ pr.r=normalR; pr.absoluteZero=false; }
     }
     // continuous: every frame, slow/freeze all enemies inside the zone
-    enemies.forEach(e=>{
+    G.enemies.forEach(e=>{
       if(dist(e,G.p)<pr.r+e.r){
         // slow them by resetting their freeze/slow timer continuously
         e.slowTimer=Math.max(e.slowTimer,8); // keep refreshed so they stay slowed
@@ -651,25 +656,42 @@ function update(dt){
     pr.life-=dt; pr.boltTimer-=dt;
     pr.cx=p.x; pr.cy=p.y;
     if(pr.life<=0) return false;
+
+    // Aura damage — enemies INSIDE the circle take continuous bonus damage every frame
+    const auraDmgPerFrame=Math.round(pr.dmg*0.08); // ~8% of bolt dmg per frame = ~480% per second bonus
+    G.enemies.forEach(e=>{
+      if(dist(e,{x:pr.cx,y:pr.cy})<pr.radius){
+        e.hp-=auraDmgPerFrame;
+        if(e.hp<=0) killEnemy(e);
+        // occasional electric spark to show the aura is working
+        if(Math.random()<0.06){
+          G.particles.push({x:e.x+rnd(-e.r,e.r),y:e.y+rnd(-e.r,e.r),
+            vx:rnd(-1,1),vy:rnd(-2,0),r:rnd(1,3),
+            col:pr.mega?'#d0b0ff':'#AAD4FF',life:rnd(8,16)});
+        }
+      }
+    });
+
     if(pr.boltTimer<=0 && enemies.length>0){
       pr.boltTimer=pr.boltRate;
-      // Only target enemies actually visible on screen
-      const onScreen=enemies.filter(e=>
-        e.x>-e.r && e.x<W()+e.r && e.y>-e.r && e.y<H()+e.r &&
-        dist(e,{x:pr.cx,y:pr.cy})<pr.radius
-      );
-      if(onScreen.length>0){
-        const targets=[...onScreen].sort(()=>Math.random()-0.5).slice(0,pr.boltCount);
+      // Hit ANY enemy on the map — the circle is just a visual indicator
+      const inRange=enemies.length>0?enemies:[];
+      if(inRange.length>0){
+        const targets=[...inRange].sort(()=>Math.random()-0.5).slice(0,pr.boltCount);
         targets.forEach((t,i)=>{
           hitEnemy(t, Math.round(pr.dmg));
           if(pr.stuns) t.slowTimer=50;
-          G.projs.push({type:'boltFlash', x:t.x, y:t.y, life:14, maxLife:14,
-            col:pr.mega?'#ffffff':'#FFE94D',
-            glow:pr.mega?'rgba(220,180,255,0.7)':'rgba(255,220,80,0.6)'});
-          spawnBurst(t.x, t.y, pr.mega?'#ffffff':'#FFD700', 10);
+          // Only show visual bolt flash for on-screen enemies
+          const onScreen=t.x>-t.r&&t.x<W()+t.r&&t.y>-t.r&&t.y<H()+t.r;
+          if(onScreen){
+            G.projs.push({type:'boltFlash', x:t.x, y:t.y, life:14, maxLife:14,
+              col:pr.mega?'#ffffff':'#FFE94D',
+              glow:pr.mega?'rgba(220,180,255,0.7)':'rgba(255,220,80,0.6)'});
+            spawnBurst(t.x, t.y, pr.mega?'#ffffff':'#FFD700', 10);
+          }
           if(pr.chains && i<targets.length-1){
             const next=targets[i+1];
-            G.projs.push({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y,
+            if(onScreen) G.projs.push({type:'boltChain', x1:t.x, y1:t.y, x2:next.x, y2:next.y,
               life:10, maxLife:10, col:pr.mega?'#e0d0ff':'#AAD4FF'});
           }
         });
@@ -779,6 +801,8 @@ function update(dt){
     pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.vx*=0.88;pt.vy*=0.88;pt.life-=dt;
     return pt.life>0;
   });
+  // Cap particles to prevent endgame lag — drop oldest first
+  if(G.particles.length>300) G.particles.splice(0, G.particles.length-300);
   G.texts=texts.filter(t=>{t.y-=0.6*dt;t.life-=dt;return t.life>0;});
 
   // spawning — gentle ramp, cap on screen enemies so early waves don't overwhelm
@@ -983,7 +1007,7 @@ function fireIceRing(){
     // 2) Persistent blizzard aura — much higher damage
     G.projs=G.projs.filter(pr=>pr.type!=='blizzardAura');
     const auraR=130+elv*35;
-    const dmgPerSec=(60+elv*30)*(p.skillDmgMult||1);
+    const dmgPerSec=(60+elv*30)*(p.skillDmgMult||1)*(p.damageMult||1);
     G.projs.push({
       type:'blizzardAura',
       r:auraR,
@@ -998,9 +1022,9 @@ function fireIceRing(){
     const dmg=Math.round((10+lv*15)*p.damageMult);
     const freezeDur=lv>=1?(80+lv*30):0;
     const slowDur=lv>=1?0:80;
-    const speed=3.8+lv*0.5;
-    const projR=5+lv*1.5;
-    const life=50+lv*15;
+    const speed=3.0+lv*0.4;     // slightly slower so easier to see
+    const projR=7+lv*1.5;       // bigger: lv0=7, lv4=13
+    const life=70+lv*18;        // longer: lv0=70fr (~1.2s), lv4=142fr (~2.4s)
     const splashOnFreeze=lv>=4;
     for(let i=0;i<shards;i++){
       const a=(Math.PI*2/shards)*i;
@@ -1097,8 +1121,10 @@ function fireSwordStorm(){
     const mega=lv>=9;
 
     // Persistent pool — always maintain N swords floating/homing
-    const poolSize=mega?24:8+elv*3; // lv5=8, lv6=11, lv7=14, lv8=17, lv9=24
-    const aliveSwords=G.projs.filter(pr=>pr.type==='swordProj').length;
+    // lv5=10, lv6=15, lv7=22, lv8=30, lv9=40
+    const poolSize=mega?40:elv<=1?10+elv*5:elv===2?22:elv===3?30:35;
+    // Use tracked count instead of scanning all projs every tick
+    const aliveSwords=G.swordProjCount||0;
     const needed=poolSize-aliveSwords;
     if(needed<=0) return;
 
@@ -1335,7 +1361,10 @@ function updateUpgradeBtn(){
 }
 
 function spawnBurst(x,y,col,n){
-  for(let i=0;i<n;i++){
+  // Reduce particle count at high waves to prevent lag
+  const scale=G?Math.max(0.3, 1-(G.wave||0)*0.008):1;
+  const count=Math.max(3,Math.round(n*scale));
+  for(let i=0;i<count;i++){
     const a=rnd(0,Math.PI*2),s=rnd(1.2,3.8);
     G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rnd(2,4),col,life:rnd(18,38)});
   }
@@ -1677,12 +1706,12 @@ function render(){
     ctx.fillRect(0,0,W(),H());
     ctx.restore();
   }
-  G.orbs.forEach(drawOrb);
-  G.hearts.forEach(drawHeart);
   G.particles.filter(p=>p.type==='wind').forEach(drawWindParticle);
   G.projs.filter(p=>p.type==='wind').forEach(drawWindRing);
   G.projs.filter(p=>p.type!=='wind').forEach(drawProj);
   G.particles.filter(p=>p.type!=='wind').forEach(drawParticle);
+  G.orbs.forEach(drawOrb);       // drawn AFTER projs so storm cloud doesn't cover them
+  G.hearts.forEach(drawHeart);
   G.enemies.forEach(drawEnemy);
   drawPlayer();
   G.texts.forEach(drawText);
@@ -1696,6 +1725,8 @@ function drawPauseDim(){
 
 function drawBg(){
   ctx.fillStyle='#0f0f1e';ctx.fillRect(0,0,W(),H());
+  // Skip grid lines at high wave to reduce draw calls
+  if(G&&G.wave>30) return;
   ctx.strokeStyle='rgba(127,119,221,0.05)';ctx.lineWidth=0.5;
   const gs=52;
   for(let x=0;x<W();x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H());ctx.stroke();}
@@ -2139,47 +2170,21 @@ function drawProj(pr){
     ctx.restore(); return;
   }
 
-  // blizzard aura (persistent frost ground around player)
+  // blizzard aura — simple lightweight ring, no expensive gradient/arms
   if(pr.type==='blizzardAura'){
+    if(!G.p) return;
     const pp=G.p;
     ctx.save();
-    // icy ground fill
-    ctx.globalAlpha=0.28;
-    const grad=ctx.createRadialGradient(pp.x,pp.y,0,pp.x,pp.y,pr.r);
-    grad.addColorStop(0,'rgba(200,235,255,0.6)');
-    grad.addColorStop(0.6,'rgba(140,210,255,0.35)');
-    grad.addColorStop(1,'rgba(100,180,255,0)');
-    ctx.fillStyle=grad;
-    ctx.beginPath();ctx.arc(pp.x,pp.y,pr.r,0,Math.PI*2);ctx.fill();
-    // spinning crystal arms
-    ctx.globalAlpha=0.5;
-    ctx.strokeStyle='rgba(200,240,255,0.7)';ctx.lineWidth=1.2;
-    for(let i=0;i<12;i++){
-      const a=pr.spinAngle+(Math.PI/6)*i;
-      const len=pr.r*(0.35+0.45*((i%2)===0?1:0.6));
-      ctx.beginPath();
-      ctx.moveTo(pp.x+Math.cos(a)*pr.r*0.12, pp.y+Math.sin(a)*pr.r*0.12);
-      ctx.lineTo(pp.x+Math.cos(a)*len, pp.y+Math.sin(a)*len);
-      ctx.stroke();
-      // branch ticks at midpoint
-      const mx=pp.x+Math.cos(a)*len*0.55, my=pp.y+Math.sin(a)*len*0.55;
-      ctx.beginPath();
-      ctx.moveTo(mx+Math.cos(a+Math.PI/2)*10, my+Math.sin(a+Math.PI/2)*10);
-      ctx.lineTo(mx+Math.cos(a-Math.PI/2)*10, my+Math.sin(a-Math.PI/2)*10);
-      ctx.stroke();
-    }
-    // orbiting snow dots
-    ctx.globalAlpha=0.6;
-    for(let i=0;i<16;i++){
-      const a=pr.spinAngle*1.8+(Math.PI*2/16)*i;
-      const dr=pr.r*(0.45+0.38*Math.sin(pr.spinAngle*1.2+i*0.8));
-      ctx.fillStyle='rgba(220,245,255,0.8)';
-      ctx.beginPath();ctx.arc(pp.x+Math.cos(a)*dr, pp.y+Math.sin(a)*dr, 2,0,Math.PI*2);ctx.fill();
-    }
-    // edge ring
-    ctx.globalAlpha=0.3;
-    ctx.strokeStyle='rgba(160,220,255,0.8)';ctx.lineWidth=1.5;
+    // Simple pulsing ring — cheap to draw
+    const pulse=0.5+0.5*Math.sin((pr.spinAngle||0)*3);
+    ctx.globalAlpha=0.35+pulse*0.15;
+    ctx.strokeStyle='rgba(140,210,255,1)';
+    ctx.lineWidth=2.5+pulse*2;
     ctx.beginPath();ctx.arc(pp.x,pp.y,pr.r,0,Math.PI*2);ctx.stroke();
+    // Second inner ring
+    ctx.globalAlpha=0.2+pulse*0.1;
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(pp.x,pp.y,pr.r*0.7,0,Math.PI*2);ctx.stroke();
     ctx.restore(); return;
   }
 
