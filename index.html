@@ -587,8 +587,8 @@ function update(dt){
     pr.life-=dt;
     if(pr.life<=0) return false;
     // Damage enemies along the beam line each frame
-    if(pr.life%4<dt+0.5){ // tick damage every ~4 frames
-      const dmgPerTick=Math.round(pr.dmg*0.25);
+    if(pr.life%2<dt+0.5){ // tick damage every ~2 frames
+      const dmgPerTick=Math.round(pr.dmg*0.3); // 30% per tick
       G.enemies.forEach(e=>{
         // Check if enemy overlaps beam line segment
         const bx=pr.tx-pr.x, by=pr.ty-pr.y;
@@ -1256,10 +1256,10 @@ function fireFinFunnel(){
 
   // Beam damage
   const dmg=mega
-    ? Math.round(1200*p.damageMult*(p.skillDmgMult||1))
+    ? Math.round(2500*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((400+elv*150)*p.damageMult*(p.skillDmgMult||1))
-      : Math.round((60+lv*40)*p.damageMult*(p.skillDmgMult||1));
+      ? Math.round((800+elv*300)*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((120+lv*80)*p.damageMult*(p.skillDmgMult||1));
 
   const pierce=lv>=4||evolved;
   const chain=lv>=7;
@@ -1283,16 +1283,18 @@ function fireFinFunnel(){
       for(let b=0;b<beamsPerFunnel;b++){
         const spread=b===0?0:rnd(-0.3,0.3);
         const d=norm({x:target.x-fx,y:target.y-fy});
-        const ca=Math.cos(spread),sa=Math.sin(spread);
+        // Pierce: extend beam endpoint 250px past the target
+        const pierceExt=pierce?250:0;
+        const tx=target.x+d.x*pierceExt;
+        const ty=target.y+d.y*pierceExt;
         G.projs.push({
           type:'funnelBeam',
           x:fx, y:fy,
-          // beam endpoint — extends toward target
-          tx:target.x, ty:target.y,
+          tx, ty,
           angle:Math.atan2(d.y,d.x)+spread,
-          life:mega?40:22+elv*4,
-          maxLife:mega?40:22+elv*4,
-          width:mega?10:4+elv*1.5,
+          life:mega?60:35+elv*6,
+          maxLife:mega?60:35+elv*6,
+          width:mega?14:6+elv*2,
           dmg, target, pierce, chain, explodeOnKill,
           col:mega?'#ff00ff':evolved?'#00ffff':'#aaddff',
           glow:mega?'rgba(255,0,255,0.6)':evolved?'rgba(0,200,255,0.5)':'rgba(160,220,255,0.4)',
@@ -1309,13 +1311,14 @@ function fireFinFunnel(){
       const fy=p.y+Math.sin(angle)*orbitR;
       const target=sorted[i%sorted.length];
       const d=norm({x:target.x-fx,y:target.y-fy});
+      const pierceExt=pierce?200:0;
       G.projs.push({
         type:'funnelBeam',
         x:fx, y:fy,
-        tx:target.x, ty:target.y,
+        tx:target.x+d.x*pierceExt, ty:target.y+d.y*pierceExt,
         angle:Math.atan2(d.y,d.x),
-        life:14+lv*3, maxLife:14+lv*3,
-        width:3+lv*0.8,
+        life:22+lv*5, maxLife:22+lv*5,
+        width:4+lv*1.2,
         dmg, target, pierce, chain:false, explodeOnKill:false,
         col:'#aaddff',
         glow:'rgba(160,220,255,0.4)',
@@ -1866,9 +1869,10 @@ function render(){
   G.projs.filter(p=>p.type==='wind').forEach(drawWindRing);
   G.projs.filter(p=>p.type!=='wind').forEach(drawProj);
   G.particles.filter(p=>p.type!=='wind').forEach(drawParticle);
-  G.orbs.forEach(drawOrb);       // drawn AFTER projs so storm cloud doesn't cover them
+  G.orbs.forEach(drawOrb);
   G.hearts.forEach(drawHeart);
   G.enemies.forEach(drawEnemy);
+  if(G.p.skills.includes('finFunnel')) drawFunnels();
   drawPlayer();
   G.texts.forEach(drawText);
   ctx.restore();
@@ -1877,6 +1881,82 @@ function render(){
 
 function drawPauseDim(){
   ctx.save();ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,W(),H());ctx.restore();
+}
+
+function drawFunnels(){
+  if(!G||!G.p) return;
+  const p=G.p;
+  const lv=p.skillLevels.finFunnel||0;
+  const evolved=lv>=5;
+  const elv=evolved?lv-5:0;
+  const mega=lv>=9;
+  const now=Date.now()*0.001;
+
+  const funnelCount=mega?9:evolved?(4+elv):2+Math.floor(lv/2);
+  const orbitR=evolved?75+elv*8:55+lv*8;
+  const col=mega?'#ff88ff':evolved?'#00ffff':'#88ccff';
+  const glowCol=mega?'rgba(255,0,255,0.3)':evolved?'rgba(0,200,255,0.25)':'rgba(136,204,255,0.2)';
+
+  for(let i=0;i<funnelCount;i++){
+    const baseAngle=(Math.PI*2/funnelCount)*i;
+    // Funnels spin around player — faster at higher levels
+    const spinSpeed=0.6+lv*0.08;
+    const angle=baseAngle+now*spinSpeed;
+    const fx=p.x+Math.cos(angle)*orbitR;
+    const fy=p.y+Math.sin(angle)*orbitR;
+
+    ctx.save();
+    ctx.translate(fx,fy);
+    ctx.rotate(angle+Math.PI/2); // tip points outward
+
+    // Outer glow
+    ctx.globalAlpha=0.3+0.15*Math.sin(now*3+i);
+    ctx.fillStyle=glowCol;
+    ctx.beginPath();ctx.arc(0,0,10,0,Math.PI*2);ctx.fill();
+
+    // Funnel body — diamond/rhombus shape like fin funnel
+    ctx.globalAlpha=0.9;
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.moveTo(0,-10);   // tip (outward)
+    ctx.lineTo(5,0);     // right
+    ctx.lineTo(0,6);     // base
+    ctx.lineTo(-5,0);    // left
+    ctx.closePath();ctx.fill();
+
+    // Inner highlight
+    ctx.fillStyle='#ffffff';
+    ctx.globalAlpha=0.6;
+    ctx.beginPath();
+    ctx.moveTo(0,-8);
+    ctx.lineTo(2,-2);
+    ctx.lineTo(0,0);
+    ctx.lineTo(-2,-2);
+    ctx.closePath();ctx.fill();
+
+    // Thruster glow at base
+    ctx.globalAlpha=0.5+0.3*Math.sin(now*8+i*1.3);
+    ctx.fillStyle=mega?'#ff00ff':evolved?'#00ffff':'#aaddff';
+    ctx.beginPath();ctx.arc(0,7,3.5,0,Math.PI*2);ctx.fill();
+
+    ctx.restore();
+
+    // Draw beam line from funnel to nearest enemy if CD is nearly ready or beam is active
+    const cdPct=(G.skillCD.finFunnel||0)/2.2;
+    if(cdPct<0.3&&G.enemies.length>0){
+      // Show targeting line — faint dashed aim line
+      const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
+      const target=sorted[i%sorted.length];
+      ctx.save();
+      ctx.globalAlpha=0.12+0.08*Math.sin(now*6);
+      ctx.strokeStyle=col;
+      ctx.lineWidth=1;
+      ctx.setLineDash([4,6]);
+      ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(target.x,target.y);ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
 }
 
 function drawBg(){
