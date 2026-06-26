@@ -189,6 +189,7 @@ const UPGRADES_STATIC=[
   {id:'iceRing',   icon:'❄️',  name:'Ice Ring',      desc:'8 shards burst outward every 3s',                   type:'skill',  stype:'iceRing'},
   {id:'wind',      icon:'💨',  name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',           type:'skill',  stype:'wind'},
   {id:'swordStorm',icon:'🗡️✨', name:'Sword Storm',  desc:'Launches homing swords at enemies every 2.5s',      type:'skill',  stype:'swordStorm'},
+  {id:'finFunnel', icon:'🔮',   name:'Fin Funnels',  desc:'2 remote funnels orbit and fire laser beams',        type:'skill',  stype:'finFunnel'},
   // Stats — one clear pick per category, no overlap with scaling
   {id:'heartrate', icon:'💓',  name:'Heart Rate',    desc:'Hearts spawn 50% more often',                       type:'heal',   htype:'heartRate'},
   // Healing — distinct mechanics only
@@ -273,6 +274,16 @@ const SKILL_UPGRADES={
     {name:'Blade Tempest Lv 8',     icon:'⚔️🌪️', desc:'Swords explode on impact dealing splash dmg',       minWave:18},
     {name:'Blade Tempest Lv 9',     icon:'⚔️🌪️', desc:'INFINITE TEMPEST: constant spinning blade storm around you', minWave:25},
   ],
+  finFunnel:[
+    {name:'Fin Funnels Lv 2',       icon:'🔮',   desc:'+1 funnel (3 total) · beams last longer'},
+    {name:'Fin Funnels Lv 3',       icon:'🔮',   desc:'+1 funnel (4 total) · beams deal more damage'},
+    {name:'Fin Funnels Lv 4',       icon:'🔮',   desc:'Beams pierce enemies · wider beam width'},
+    {name:'✨ PSYCO FRAME — Lv 5',  icon:'🌟',   desc:'EVOLVES! Funnels detach and surround enemies, firing from all sides'},
+    {name:'Psyco Frame Lv 6',       icon:'🌟',   desc:'Each funnel fires 2 simultaneous beams · stronger damage'},
+    {name:'Psyco Frame Lv 7',       icon:'🌟',   desc:'+3 funnels (7 total) · beams chain to nearby enemies', minWave:12},
+    {name:'Psyco Frame Lv 8',       icon:'🌟',   desc:'Funnels explode on kill · shockwave damages nearby enemies', minWave:18},
+    {name:'Psyco Frame Lv 9',       icon:'🌟',   desc:'AWAKENING: 9 funnels fire mega-beams simultaneously · all-screen coverage', minWave:25},
+  ],
 };
 
 let G=null, paused=false, lastTs=0, upgradeMode='auto'; // 'auto' = pause+show immediately, 'save' = queue for later
@@ -287,7 +298,7 @@ function newGame(){
     invTimer:0,wobble:0,eyeDir:0,
     weapons:[{type:'sword',masterAngle:0,hitCD:{}}],
     skills:[],
-    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0},
+    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0},
     spinSpeed:1.0,damageMult:1.0,magnetRange:1.0,
     skillDmgMult:1.0,  // separate multiplier for skill damage only
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
@@ -303,7 +314,7 @@ function newGame(){
     spawnTimer:0,spawnRate:110,
     heartSpawnTimer:0,heartSpawnRate:18,
     kills:0,score:0,elapsed:0,
-    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0},
+    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0},
     running:true,upgrading:false, shakeTimer:0, flashTimer:0,
     passiveXpTimer:0, pendingUpgrades:0, pendingChoices:[],
     swordProjCount:0,
@@ -398,8 +409,8 @@ function update(dt){
   function getCD(sk){
     const lv=p.skillLevels[sk]||0;
     const evolved=lv>=5;
-    const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5}[sk];
-    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8}[sk];
+    const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5,finFunnel:2.2}[sk];
+    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8,finFunnel:1.6}[sk];
     const b=evolved?evolvedBase:base;
     const lvFactor=Math.min(lv,9);
     const raw=Math.max(0.3, b/(1+lvFactor*0.18));
@@ -413,6 +424,7 @@ function update(dt){
       if(sk==='iceRing') fireIceRing();
       if(sk==='wind') fireWind();
       if(sk==='swordStorm') fireSwordStorm();
+      if(sk==='finFunnel') fireFinFunnel();
     }
   });
 
@@ -425,7 +437,7 @@ function update(dt){
     if(pr.type==='wind'||pr.type==='tornado'||
        pr.type==='stormCloud'||pr.type==='boltFlash'||pr.type==='boltChain'||
        pr.type==='blizzardAura'||pr.type==='iceShockwave'||pr.type==='fireZone'||
-       pr.type==='swordProj') return true;
+       pr.type==='swordProj'||pr.type==='funnelBeam'||pr.type==='funnelOrbit') return true;
 
     // ---- METEOR — falls from top ----
     if(pr.type==='meteor'){
@@ -568,6 +580,44 @@ function update(dt){
     return true;
   });
   G.swordProjCount=G.projs.filter(pr=>pr.type==='swordProj').length;
+
+  // funnel beams — sustained laser damage along beam line
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='funnelBeam') return true;
+    pr.life-=dt;
+    if(pr.life<=0) return false;
+    // Damage enemies along the beam line each frame
+    if(pr.life%4<dt+0.5){ // tick damage every ~4 frames
+      const dmgPerTick=Math.round(pr.dmg*0.25);
+      G.enemies.forEach(e=>{
+        // Check if enemy overlaps beam line segment
+        const bx=pr.tx-pr.x, by=pr.ty-pr.y;
+        const len=Math.sqrt(bx*bx+by*by)||1;
+        const t2=Math.max(0,Math.min(1,((e.x-pr.x)*bx+(e.y-pr.y)*by)/(len*len)));
+        const cx=pr.x+t2*bx, cy=pr.y+t2*by;
+        const beamDist=dist({x:cx,y:cy},e);
+        if(beamDist<e.r+(pr.width||4)){
+          hitEnemy(e,dmgPerTick);
+          if(pr.explodeOnKill&&e.hp<=0){
+            spawnBurst(e.x,e.y,'#00ffff',16);
+            G.enemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<80)hitEnemy(ne,Math.round(dmgPerTick*2));});
+          }
+          if(pr.chain){
+            // Arc to nearest other enemy
+            const next=G.enemies.filter(ne=>ne!==e).sort((a,b)=>dist(a,e)-dist(b,e))[0];
+            if(next&&dist(next,e)<160){
+              G.projs.push({type:'funnelBeam',x:e.x,y:e.y,tx:next.x,ty:next.y,
+                angle:Math.atan2(next.y-e.y,next.x-e.x),
+                life:8,maxLife:8,width:pr.width*0.6,dmg:pr.dmg*0.5,
+                target:next,pierce:false,chain:false,explodeOnKill:false,
+                col:'rgba(0,255,255,0.6)',glow:'rgba(0,200,255,0.3)',mega:false});
+            }
+          }
+        }
+      });
+    }
+    return true;
+  });
 
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='wind') return true;
@@ -1189,6 +1239,88 @@ function fireSwordStorm(){
       G.projs.push({x:p.x,y:p.y,vx,vy,r:10,type:'swordProj',
         dmg,target,pierce:lv>=2,ricochet:lv>=3,explode:false,
         pierceCount:lv>=2?2:0,life:200,angle:Math.atan2(vy,vx),trail:[]});
+    }
+  }
+}
+
+function fireFinFunnel(){
+  const p=G.p;
+  const lv=p.skillLevels.finFunnel||0;
+  const evolved=lv>=5;
+  const elv=evolved?lv-5:0;
+  const mega=lv>=9;
+
+  // Number of funnels
+  const funnelCount=mega?9:evolved?(4+elv):2+Math.floor(lv/2);
+  // lv0=2,lv1=2,lv2=3,lv3=4,lv4=4 | lv5=4,lv6=5,lv7=7,lv8=8,lv9=9
+
+  // Beam damage
+  const dmg=mega
+    ? Math.round(1200*p.damageMult*(p.skillDmgMult||1))
+    : evolved
+      ? Math.round((400+elv*150)*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((60+lv*40)*p.damageMult*(p.skillDmgMult||1));
+
+  const pierce=lv>=4||evolved;
+  const chain=lv>=7;
+  const explodeOnKill=lv>=8;
+  const beamsPerFunnel=lv>=6?2:1;
+
+  if(!G.enemies||G.enemies.length===0) return;
+  const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
+
+  if(evolved){
+    // PSYCO FRAME — funnels detach and surround target enemies, fire from all sides
+    for(let i=0;i<funnelCount;i++){
+      const target=sorted[i%sorted.length];
+      // Position funnel around the target from random angle
+      const angle=rnd(0,Math.PI*2);
+      const fDist=mega?90:50+elv*10;
+      const fx=target.x+Math.cos(angle)*fDist;
+      const fy=target.y+Math.sin(angle)*fDist;
+
+      // Fire beam from funnel position toward target
+      for(let b=0;b<beamsPerFunnel;b++){
+        const spread=b===0?0:rnd(-0.3,0.3);
+        const d=norm({x:target.x-fx,y:target.y-fy});
+        const ca=Math.cos(spread),sa=Math.sin(spread);
+        G.projs.push({
+          type:'funnelBeam',
+          x:fx, y:fy,
+          // beam endpoint — extends toward target
+          tx:target.x, ty:target.y,
+          angle:Math.atan2(d.y,d.x)+spread,
+          life:mega?40:22+elv*4,
+          maxLife:mega?40:22+elv*4,
+          width:mega?10:4+elv*1.5,
+          dmg, target, pierce, chain, explodeOnKill,
+          col:mega?'#ff00ff':evolved?'#00ffff':'#aaddff',
+          glow:mega?'rgba(255,0,255,0.6)':evolved?'rgba(0,200,255,0.5)':'rgba(160,220,255,0.4)',
+          mega
+        });
+      }
+    }
+  } else {
+    // BASE — funnels orbit player and fire beams at nearest enemies
+    for(let i=0;i<funnelCount;i++){
+      const angle=(Math.PI*2/funnelCount)*i + (Date.now()*0.001);
+      const orbitR=55+lv*8;
+      const fx=p.x+Math.cos(angle)*orbitR;
+      const fy=p.y+Math.sin(angle)*orbitR;
+      const target=sorted[i%sorted.length];
+      const d=norm({x:target.x-fx,y:target.y-fy});
+      G.projs.push({
+        type:'funnelBeam',
+        x:fx, y:fy,
+        tx:target.x, ty:target.y,
+        angle:Math.atan2(d.y,d.x),
+        life:14+lv*3, maxLife:14+lv*3,
+        width:3+lv*0.8,
+        dmg, target, pierce, chain:false, explodeOnKill:false,
+        col:'#aaddff',
+        glow:'rgba(160,220,255,0.4)',
+        mega:false
+      });
     }
   }
 }
@@ -2054,6 +2186,33 @@ function drawProj(pr){
     ctx.strokeStyle='rgba(255,255,255,0.95)';
     ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(pr.cx,pr.cy,Math.max(0,pr.radius-4),0,Math.PI*2);ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // funnel beam — glowing laser line from funnel to target
+  if(pr.type==='funnelBeam'){
+    const f=pr.life/(pr.maxLife||20);
+    ctx.save();
+    // outer glow
+    ctx.globalAlpha=f*0.4;
+    ctx.strokeStyle=pr.glow||'rgba(160,220,255,0.4)';
+    ctx.lineWidth=(pr.width||4)*3;
+    ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(pr.x,pr.y);ctx.lineTo(pr.tx,pr.ty);ctx.stroke();
+    // core beam
+    ctx.globalAlpha=f*0.9;
+    ctx.strokeStyle=pr.col||'#aaddff';
+    ctx.lineWidth=pr.width||4;
+    ctx.beginPath();ctx.moveTo(pr.x,pr.y);ctx.lineTo(pr.tx,pr.ty);ctx.stroke();
+    // bright center
+    ctx.globalAlpha=f;
+    ctx.strokeStyle='#ffffff';
+    ctx.lineWidth=(pr.width||4)*0.3;
+    ctx.beginPath();ctx.moveTo(pr.x,pr.y);ctx.lineTo(pr.tx,pr.ty);ctx.stroke();
+    // funnel source dot
+    ctx.globalAlpha=f;
+    ctx.fillStyle=pr.col||'#aaddff';
+    ctx.beginPath();ctx.arc(pr.x,pr.y,(pr.width||4)*1.2,0,Math.PI*2);ctx.fill();
     ctx.restore(); return;
   }
 
