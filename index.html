@@ -1259,7 +1259,7 @@ function fireFinFunnel(){
     ? Math.round(2500*p.damageMult*(p.skillDmgMult||1))
     : evolved
       ? Math.round((800+elv*300)*p.damageMult*(p.skillDmgMult||1))
-      : Math.round((120+lv*80)*p.damageMult*(p.skillDmgMult||1));
+      : Math.round((25+lv*15)*p.damageMult*(p.skillDmgMult||1)); // lv0=25, lv4=85 — deliberately weak pre-evolution
 
   const pierce=lv>=4||evolved;
   const chain=lv>=7;
@@ -1317,8 +1317,8 @@ function fireFinFunnel(){
         x:fx, y:fy,
         tx:target.x+d.x*pierceExt, ty:target.y+d.y*pierceExt,
         angle:Math.atan2(d.y,d.x),
-        life:22+lv*5, maxLife:22+lv*5,
-        width:4+lv*1.2,
+        life:10+lv*3, maxLife:10+lv*3,  // short beam pre-evolution: lv0=10fr, lv4=22fr
+        width:3+lv*0.5,
         dmg, target, pierce, chain:false, explodeOnKill:false,
         col:'#aaddff',
         glow:'rgba(160,220,255,0.4)',
