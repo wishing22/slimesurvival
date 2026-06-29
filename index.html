@@ -168,7 +168,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
       <button id="upgradeModeBtn" style="background:#1a1a3a;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:13px;padding:8px 14px;cursor:pointer;pointer-events:all;min-width:130px;">⚡ Auto popup</button>
     </div>
     <button class="btn" style="background:#2a1a1a;border:1.5px solid #7a3030;" id="quitBtn">💾 Save &amp; Quit</button>
-    <button id="adminPanelBtn" style="background:transparent;border:none;color:#333;font-size:11px;cursor:pointer;pointer-events:all;margin-top:4px;">⚙ Admin</button>
+    <button id="adminPanelBtn" style="background:#1a1a3a;border:1.5px solid #444;border-radius:10px;color:#888;font-size:13px;padding:8px 20px;cursor:pointer;pointer-events:all;margin-top:4px;">⚙️ Admin Panel</button>
   </div>
 
   <!-- Admin Panel -->
@@ -2950,6 +2950,9 @@ jZone.addEventListener('touchmove',e=>{
 document.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(e.key==='Escape'||k==='p') togglePause();
+  if(e.key==='`'||e.key==='~') { // backtick/tilde opens admin panel
+    if(G&&G.running) openAdminPanel();
+  }
   if(e.key==='ArrowLeft' ||k==='a') joy.dx=-1;
   if(e.key==='ArrowRight'||k==='d') joy.dx=1;
   if(e.key==='ArrowUp'   ||k==='w') joy.dy=-1;
@@ -2965,6 +2968,8 @@ document.addEventListener('keyup',e=>{
 // ---- ADMIN PANEL ----
 function openAdminPanel(){
   if(!G||!G.running) return;
+  const pw=prompt('🔐 Admin password:');
+  if(pw!=='slimeadmin2026') { alert('Incorrect password.'); return; }
   paused=true;
   document.getElementById('pauseScreen').style.display='none';
   document.getElementById('adminPanel').style.display='block';
