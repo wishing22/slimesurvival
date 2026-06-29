@@ -163,12 +163,34 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
     <h2>⏸ Paused</h2>
     <p>Take a breather, slime.</p>
     <button class="btn" id="resumeBtn">▶ Resume</button>
+    <button class="btn" id="statsBtn" style="background:#1a1a3a;border:1.5px solid #534AB7;">📊 My Stats</button>
     <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
       <span style="color:#aaa;font-size:13px;">Upgrade mode:</span>
       <button id="upgradeModeBtn" style="background:#1a1a3a;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:13px;padding:8px 14px;cursor:pointer;pointer-events:all;min-width:130px;">⚡ Auto popup</button>
     </div>
     <button class="btn" style="background:#2a1a1a;border:1.5px solid #7a3030;" id="quitBtn">💾 Save &amp; Quit</button>
     <button id="adminPanelBtn" style="background:#1a1a3a;border:1.5px solid #444;border-radius:10px;color:#888;font-size:13px;padding:8px 20px;cursor:pointer;pointer-events:all;margin-top:4px;">⚙️ Admin Panel</button>
+  </div>
+
+  <!-- Player Stats Screen -->
+  <div id="statsScreen" style="display:none;position:absolute;inset:0;background:rgba(8,8,20,0.97);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(20px,env(safe-area-inset-top)) 16px max(80px,env(safe-area-inset-bottom)) 16px;box-sizing:border-box;">
+    <div style="max-width:420px;margin:0 auto;display:flex;flex-direction:column;gap:10px;">
+      <h2 style="color:#FFD700;font-size:20px;margin:0;text-align:center;">📊 My Build</h2>
+      <div id="statsContent" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <button class="btn" id="statsCloseBtn" style="position:sticky;bottom:12px;margin-top:4px;">← Back</button>
+    </div>
+  </div>
+
+  <!-- Admin Password Overlay -->
+  <div id="adminPwOverlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.85);flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:100;">
+    <h2 style="color:#FFD700;font-size:20px;margin:0;">🔐 Admin Password</h2>
+    <input id="adminPwInput" type="password" maxlength="32" placeholder="Enter password…" autocomplete="off"
+      style="background:#141428;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:16px;padding:12px 16px;width:min(240px,75vw);text-align:center;outline:none;-webkit-appearance:none;"
+    />
+    <div style="display:flex;gap:10px;">
+      <button class="btn green" onclick="submitAdminPassword()">✓ Enter</button>
+      <button class="btn" style="background:#1a1a2e;border:1px solid #333;" onclick="document.getElementById('adminPwOverlay').style.display='none'">✕ Cancel</button>
+    </div>
   </div>
 
   <!-- Admin Panel -->
@@ -255,6 +277,12 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
       </div>
 
       <button class="btn" onclick="closeAdminPanel()" style="margin-top:4px;">✕ Close</button>
+
+      <!-- Current Status -->
+      <div style="background:#141428;border:1px solid #333;border-radius:10px;padding:12px;">
+        <p style="color:#aaa;font-size:12px;margin:0 0 8px;">📊 Current Status</p>
+        <div id="adminStatus" style="color:#ddd;font-size:12px;line-height:1.8;"></div>
+      </div>
     </div>
   </div>
 
@@ -560,7 +588,7 @@ function update(dt){
           }
         });
         spawnSplash(pr.tx,pr.ty,'#ff6600',splashR);
-        spawnBurst(pr.tx,pr.ty,'#FF4500',28);
+        spawnBurst(pr.tx,pr.ty,'#FF4500',10);
         // always leave a fire zone for evolved meteors
         if(pr.fireZone){
           G.projs.push({type:'fireZone',cx:pr.tx,cy:pr.ty,
@@ -569,7 +597,7 @@ function update(dt){
             dmg:Math.round(80*G.p.damageMult),  // 80 per tick vs old 20
             tickTimer:0,tickRate:10});           // 6 ticks/sec vs old 3
         }
-        G.shakeTimer=pr.mega?4:1;
+        G.shakeTimer=pr.mega?2:0;
         return false;
       }
       return true;
@@ -589,7 +617,7 @@ function update(dt){
             enemies.forEach(ne=>{
               if(ne!==e&&dist(ne,e)<60) hitEnemy(ne,Math.round(pr.dmg*0.5));
             });
-            spawnBurst(e.x,e.y,'#85B7EB',10);
+            spawnBurst(e.x,e.y,'#85B7EB',5);
           }
           return false;
         }
@@ -634,7 +662,7 @@ function update(dt){
             enemies.forEach(ne=>{
               if(ne!==e&&dist(ne,e)<50) hitEnemy(ne,Math.round(pr.dmg*0.6));
             });
-            spawnBurst(e.x,e.y,'#85B7EB',10);
+            spawnBurst(e.x,e.y,'#85B7EB',5);
           }
         }
         return false;
@@ -673,7 +701,7 @@ function update(dt){
         hitEnemy(e,Math.round(pr.dmg));
         if(pr.explode){
           liveEnemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<70)hitEnemy(ne,Math.round(pr.dmg*0.5));});
-          spawnBurst(pr.x,pr.y,'#c8a040',12);
+          spawnBurst(pr.x,pr.y,'#c8a040',6);
         }
         if(pr.ricochet&&pr.pierceCount>0){
           const next=liveEnemies.filter(ne=>ne!==e).sort((a,b)=>dist(a,pr)-dist(b,pr))[0];
@@ -753,7 +781,7 @@ function update(dt){
         if(beamDist<e.r+(pr.width||4)){
           hitEnemy(e,dmgPerTick);
           if(pr.explodeOnKill&&e.hp<=0){
-            spawnBurst(e.x,e.y,'#00ffff',16);
+            spawnBurst(e.x,e.y,'#00ffff',6);
             G.enemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<80)hitEnemy(ne,Math.round(dmgPerTick*2));});
           }
           if(pr.chain){
@@ -894,7 +922,7 @@ function update(dt){
             G.projs.push({type:'boltFlash', x:t.x, y:t.y, life:14, maxLife:14,
               col:pr.mega?'#ffffff':'#FFE94D',
               glow:pr.mega?'rgba(220,180,255,0.7)':'rgba(255,220,80,0.6)'});
-            spawnBurst(t.x, t.y, pr.mega?'#ffffff':'#FFD700', 10);
+            spawnBurst(t.x, t.y, pr.mega?'#ffffff':'#FFD700', 5);
           }
           if(pr.chains && i<targets.length-1){
             const next=targets[i+1];
@@ -1007,7 +1035,7 @@ function update(dt){
     if(h.life<=0) return false;
     if(dist(h,p)<p.r+h.r){
       healPlayer(h.big?60:30,true);
-      spawnBurst(h.x,h.y,'#ff6b8a',14);
+      spawnBurst(h.x,h.y,'#ff6b8a',6);
       return false;
     }
     return true;
@@ -1191,10 +1219,10 @@ function fireIceRing(){
         });
       }
 
-      G.flashTimer=8;
-      G.shakeTimer=6;
-      spawnBurst(p.x,p.y,'#a0d8ef',20); // was 80
-      spawnBurst(p.x,p.y,'#ffffff',12); // was 40
+      G.flashTimer=4;
+      G.shakeTimer=3;
+      spawnBurst(p.x,p.y,'#a0d8ef',10); // was 20
+      spawnBurst(p.x,p.y,'#ffffff',6);  // was 12
 
       // Blizzard aura — reasonable radius, not screen-wide
       for(let _i=G.projs.length-1;_i>=0;_i--){if(G.projs[_i].type==='blizzardAura')G.projs.splice(_i,1);}
@@ -1551,8 +1579,8 @@ function fireNovaPulse(){
   }
 
   // Screen flash for overcharge/mega
-  if(overcharge||mega) G.flashTimer=5;
-  if(overcharge) G.shakeTimer=4;
+  if(overcharge||mega) G.flashTimer=3;
+  if(overcharge) G.shakeTimer=2;
 }
 
 function spawnWindParticles(x,y,r){
@@ -1630,7 +1658,7 @@ function hitEnemy(e,dmg){
   if(e.debuffTimer>0) dmg=Math.round(dmg*1.2); // nova pulse debuff
   e.hp-=dmg; e.hitFlash=10;
   G.texts.push({x:e.x,y:e.y-e.r,txt:'-'+dmg,col:'#fff',life:40});
-  spawnBurst(e.x,e.y,e.col,4);
+  spawnBurst(e.x,e.y,e.col,3);
   if(e.hp<=0) killEnemy(e);
 }
 
@@ -1665,7 +1693,7 @@ function killEnemy(e){
 
   const onScreen=e.x>-e.r&&e.x<W()+e.r&&e.y>-e.r&&e.y<H()+e.r;
 
-  if(onScreen) spawnBurst(e.x,e.y,e.col,18);
+  if(onScreen) spawnBurst(e.x,e.y,e.col,8);
 
   // Orb values scale with wave but are capped to prevent XP flooding
   const w=G.wave;
@@ -2520,9 +2548,9 @@ function drawProj(pr){
     const f=pr.life/(pr.maxLife||45);
     ctx.save();
     // Outer glow
-    ctx.globalAlpha=f*0.25;
+    ctx.globalAlpha=f*0.2;
     ctx.strokeStyle=pr.col+'0.4)';
-    ctx.lineWidth=22*f;
+    ctx.lineWidth=12*f;
     ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
     // Core ring
     ctx.globalAlpha=f*0.85;
@@ -2554,9 +2582,9 @@ function drawProj(pr){
     const f=pr.life/(pr.maxLife||20);
     ctx.save();
     // outer glow
-    ctx.globalAlpha=f*0.4;
+    ctx.globalAlpha=f*0.2;
     ctx.strokeStyle=pr.glow||'rgba(160,220,255,0.4)';
-    ctx.lineWidth=(pr.width||4)*3;
+    ctx.lineWidth=(pr.width||4)*1.8;
     ctx.lineCap='round';
     ctx.beginPath();ctx.moveTo(pr.x,pr.y);ctx.lineTo(pr.tx,pr.ty);ctx.stroke();
     // core beam
@@ -2968,11 +2996,171 @@ document.addEventListener('keyup',e=>{
 // ---- ADMIN PANEL ----
 function openAdminPanel(){
   if(!G||!G.running) return;
-  const pw=prompt('🔐 Admin password:');
-  if(pw!=='slimeadmin2026') { alert('Incorrect password.'); return; }
+  // Show password input overlay
+  const overlay=document.getElementById('adminPwOverlay');
+  document.getElementById('adminPwInput').value='';
+  overlay.style.display='flex';
+  setTimeout(()=>document.getElementById('adminPwInput').focus(),100);
+}
+function submitAdminPassword(){
+  const pw=document.getElementById('adminPwInput').value;
+  document.getElementById('adminPwOverlay').style.display='none';
+  if(pw.trim()!=='slimeadmin2026'){alert('Incorrect password.');return;}
   paused=true;
   document.getElementById('pauseScreen').style.display='none';
   document.getElementById('adminPanel').style.display='block';
+  updateAdminStatus();
+}
+
+function showStatsScreen(){
+  if(!G||!G.p) return;
+  const p=G.p;
+  const st=p.scalingStacks||{};
+  const skillNames={
+    fireball:'🔥 Fireball',lightning:'⚡ Lightning',iceRing:'❄️ Ice Ring',
+    wind:'💨 Wind Burst',swordStorm:'🗡️✨ Sword Storm',finFunnel:'🔮 Fin Funnels',novaPulse:'💫 Nova Pulse'
+  };
+  const evolvedNames={
+    fireball:'☄️ Meteor',lightning:'⛈️ Storm',iceRing:'🌨️ Blizzard',
+    wind:'🌪️ Tornado',swordStorm:'⚔️ Blade Tempest',finFunnel:'🌟 Psyco Frame',novaPulse:'🌀 Pulsar'
+  };
+
+  const card=(title,rows)=>`
+    <div style="background:#141428;border:1px solid #2a2a4a;border-radius:12px;padding:12px;">
+      <p style="color:#FFD700;font-size:12px;font-weight:600;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em;">${title}</p>
+      ${rows.map(([label,val,col])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #1a1a2e;">
+          <span style="color:#aaa;font-size:13px;">${label}</span>
+          <span style="color:${col||'#fff'};font-size:13px;font-weight:500;">${val}</span>
+        </div>`).join('')}
+    </div>`;
+
+  let html='';
+
+  // Overview
+  html+=card('⚡ Overview',[
+    ['Wave',G.wave,'#FFD700'],
+    ['Player Level',p.level,'#AFA9EC'],
+    ['Kills',G.kills.toLocaleString(),'#ff8888'],
+    ['Score',G.score.toLocaleString(),'#FFD700'],
+    ['HP',`${Math.ceil(p.hp)} / ${p.maxHp}`,p.hp/p.maxHp>0.5?'#1D9E75':'#ff4444'],
+  ]);
+
+  // Skills
+  const skillRows=[];
+  if(p.skills.length===0){
+    skillRows.push(['No skills yet','Pick some!','#666']);
+  } else {
+    p.skills.forEach(sk=>{
+      const lv=p.skillLevels[sk]||0;
+      const evolved=lv>=4;
+      const mega=lv>=8;
+      const name=evolved?evolvedNames[sk]:skillNames[sk];
+      const lvLabel=mega?'MAX ⭐':evolved?`Lv${lv+1} ✨`:`Lv${lv+1}`;
+      const col=mega?'#FFD700':evolved?'#aa88ff':'#88ccff';
+      skillRows.push([name,lvLabel,col]);
+    });
+  }
+  html+=card('✨ Skills',skillRows);
+
+  // Weapons
+  const swords=p.weapons.filter(w=>w.type==='sword').length;
+  const spears=p.weapons.filter(w=>w.type==='spear').length;
+  html+=card('⚔️ Weapons',[
+    ['Swords',swords,'#dde8f5'],
+    ['Spears',spears,'#AFA9EC'],
+    ['Total slots',`${p.weapons.length}/16`,p.weapons.length>=16?'#FFD700':'#fff'],
+  ]);
+
+  // Combat stats
+  html+=card('💥 Combat',[
+    ['Damage','×'+p.damageMult.toFixed(2),p.damageMult>2?'#ff8888':'#fff'],
+    ['Skill damage','×'+(p.skillDmgMult||1).toFixed(2),(p.skillDmgMult||1)>2?'#aa88ff':'#fff'],
+    ['CD reduction',((1-(p.cdReduction||1))*100).toFixed(0)+'%','#88ccff'],
+    ['Move speed',p.moveSpeed.toFixed(2),'#5DCAA5'],
+    ...(p.lifestealPct>0?[['Life steal',(p.lifestealPct*100).toFixed(0)+'%','#ff6688']]:[]),
+    ...(p.vampirismAmt>0?[['Vampirism',p.vampirismAmt+' HP/kill','#cc88ff']]:[]),
+    ...(p.regenRate>0?[['Regen',p.regenRate+' HP/5s','#1D9E75']]:[]),
+    ...(p.magnetRange>1?[['XP Magnet','×'+p.magnetRange.toFixed(1),'#FFD700']]:[]),
+  ]);
+
+  // Scaling stacks
+  const scalingRows=[];
+  const scalingInfo=[
+    ['dmg','💥 Power Surge'],['cdmg','⚡ Skill Overcharge'],['hp','❤️ Vitality'],
+    ['regen','💚 Regeneration'],['speed','👟 Swift Feet'],['spin','🌀 Blade Frenzy'],
+    ['cd','⏱️ Rapid Fire'],['magnet','🧲 XP Magnet'],['ls','🩸 Life Steal'],['vamp','🧛 Vampirism'],
+  ];
+  scalingInfo.forEach(([key,name])=>{
+    const n=st[key]||0;
+    if(n>0) scalingRows.push([name,n+` stack${n>1?'s':''}`, n>=5?'#FFD700':'#4dff9a']);
+  });
+  if(scalingRows.length>0) html+=card('∞ Scaling Upgrades',scalingRows);
+
+  document.getElementById('statsContent').innerHTML=html;
+  document.getElementById('pauseScreen').style.display='none';
+  document.getElementById('statsScreen').style.display='block';
+}
+
+document.getElementById('statsBtn').addEventListener('click',showStatsScreen);
+document.getElementById('statsBtn').addEventListener('touchend',e=>{e.preventDefault();showStatsScreen();},{passive:false});
+document.getElementById('statsCloseBtn').addEventListener('click',()=>{
+  document.getElementById('statsScreen').style.display='none';
+  document.getElementById('pauseScreen').style.display='flex';
+});
+document.getElementById('statsCloseBtn').addEventListener('touchend',e=>{
+  e.preventDefault();
+  document.getElementById('statsScreen').style.display='none';
+  document.getElementById('pauseScreen').style.display='flex';
+},{passive:false});
+
+function updateAdminStatus(){
+  if(!G||!G.p) return;
+  const p=G.p;
+  const st=p.scalingStacks||{};
+  const skillNames={fireball:'🔥 Fireball',lightning:'⚡ Lightning',iceRing:'❄️ Ice Ring',
+    wind:'💨 Wind',swordStorm:'🗡️ Sword Storm',finFunnel:'🔮 Fin Funnels',novaPulse:'💫 Nova Pulse'};
+  const lvLabel=lv=>lv===0?'Lv1 (base)':lv>=8?'<span style="color:#FFD700">Lv9 MAX</span>':lv>=4?`<span style="color:#aa88ff">Lv${lv+1} (evolved)</span>`:`Lv${lv+1}`;
+
+  let html='';
+  // Player
+  html+=`<b style="color:#FFD700">Player</b><br>`;
+  html+=`Wave: ${G.wave} &nbsp;|&nbsp; Level: ${p.level} &nbsp;|&nbsp; XP: ${p.xp}/${p.xpNext}<br>`;
+  html+=`HP: ${Math.ceil(p.hp)}/${p.maxHp} &nbsp;|&nbsp; God Mode: ${p._godMode?'<span style="color:#0f0">ON</span>':'OFF'}<br>`;
+  html+=`<br><b style="color:#FFD700">Skills</b><br>`;
+  if(p.skills.length===0) html+='<span style="color:#666">None yet</span><br>';
+  p.skills.forEach(sk=>{
+    const lv=p.skillLevels[sk]||0;
+    html+=`${skillNames[sk]||sk}: ${lvLabel(lv)}<br>`;
+  });
+  html+=`<br><b style="color:#FFD700">Weapons</b><br>`;
+  const swords=p.weapons.filter(w=>w.type==='sword').length;
+  const spears=p.weapons.filter(w=>w.type==='spear').length;
+  html+=`⚔️ Swords: ${swords} &nbsp;|&nbsp; 🗡️ Spears: ${spears} &nbsp;|&nbsp; Total: ${p.weapons.length}/16<br>`;
+  html+=`<br><b style="color:#FFD700">Scaling Upgrades</b><br>`;
+  const scalingInfo=[
+    ['dmg','💥 Power Surge',st.dmg||0],
+    ['cdmg','⚡ Skill Overcharge',st.cdmg||0],
+    ['hp','❤️ Vitality',st.hp||0],
+    ['regen','💚 Regen',st.regen||0],
+    ['speed','👟 Swift Feet',st.speed||0],
+    ['spin','🌀 Blade Frenzy',st.spin||0],
+    ['cd','⏱️ Rapid Fire',st.cd||0],
+    ['magnet','🧲 XP Magnet',st.magnet||0],
+    ['ls','🩸 Life Steal',st.ls||0],
+    ['vamp','🧛 Vampirism',st.vamp||0],
+  ];
+  scalingInfo.forEach(([,name,n])=>{
+    if(n>0) html+=`${name}: <span style="color:#4dff9a">${n} stack${n>1?'s':''}</span><br>`;
+  });
+  if(scalingInfo.every(([,,n])=>n===0)) html+='<span style="color:#666">None yet</span><br>';
+  html+=`<br><b style="color:#FFD700">Stats</b><br>`;
+  html+=`Damage: ×${p.damageMult.toFixed(2)} &nbsp;|&nbsp; Skill Dmg: ×${(p.skillDmgMult||1).toFixed(2)}<br>`;
+  html+=`Speed: ${p.moveSpeed.toFixed(2)} &nbsp;|&nbsp; CD reduction: ${((1-(p.cdReduction||1))*100).toFixed(0)}%<br>`;
+  html+=`Magnet range: ${Math.round(60*p.magnetRange)}px &nbsp;|&nbsp; Regen: ${p.regenRate} HP/5s<br>`;
+  if(p.lifestealPct>0) html+=`Lifesteal: ${(p.lifestealPct*100).toFixed(0)}%<br>`;
+  if(p.vampirismAmt>0) html+=`Vampirism: ${p.vampirismAmt} HP/kill<br>`;
+  document.getElementById('adminStatus').innerHTML=html;
 }
 function closeAdminPanel(){
   document.getElementById('adminPanel').style.display='none';
@@ -2983,6 +3171,7 @@ function adminSetWave(n){
   G.wave=Math.max(1,n);
   G.waveTimer=0;
   showWave(G.wave);
+  updateAdminStatus();
 }
 function adminSetLevel(n){
   if(!G) return;
@@ -2997,6 +3186,7 @@ function adminSetLevel(n){
     xpNext+=inc;
   }
   p.xpNext=xpNext;
+  updateAdminStatus();
 }
 function adminSkill(sk){
   if(!G) return;
@@ -3006,6 +3196,7 @@ function adminSkill(sk){
   const cur=p.skillLevels[sk]||0;
   if(cur<(cards?.length||8)) p.skillLevels[sk]=cur+1; // max = cards.length = 8
   G.skillCD[sk]=0;
+  updateAdminStatus();
 }
 function adminMaxAllSkills(){
   if(!G) return;
@@ -3015,38 +3206,47 @@ function adminMaxAllSkills(){
     p.skillLevels[sk]=8; // 8 = max (lv9 in display)
     G.skillCD[sk]=0;
   });
+  updateAdminStatus();
 }
 function adminAddWeapon(type){
   if(!G||G.p.weapons.length>=16) return;
   G.p.weapons.push({type,masterAngle:0,hitCD:{}});
+  updateAdminStatus();
 }
 function adminMaxWeapons(){
   if(!G) return;
   while(G.p.weapons.length<16){
     G.p.weapons.push({type:G.p.weapons.length%2===0?'sword':'spear',masterAngle:0,hitCD:{}});
   }
+  updateAdminStatus();
 }
 function adminScaling(skey){
   if(!G) return;
   const u=SCALING_UPGRADES.find(s=>s.skey===skey);
   if(!u) return;
   applyUpgrade({...u, desc:u.desc(0), _stackKey:u.skey});
+  updateAdminStatus();
 }
 function adminMaxScaling(){
   if(!G) return;
   SCALING_UPGRADES.forEach(u=>{
     for(let i=0;i<5;i++) applyUpgrade({...u, desc:u.desc(i), _stackKey:u.skey});
   });
+  updateAdminStatus();
 }
 function adminHeal(){
   if(!G) return;
   G.p.hp=G.p.maxHp;
+  updateAdminStatus();
 }
 function adminInvincible(){
   if(!G) return;
   G.p._godMode=!G.p._godMode;
-  console.log('God mode:',G.p._godMode);
+  updateAdminStatus();
 }
+document.getElementById('adminPwInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter') submitAdminPassword();
+});
 document.getElementById('adminPanelBtn').addEventListener('click',openAdminPanel);
 document.getElementById('adminPanelBtn').addEventListener('touchend',e=>{e.preventDefault();openAdminPanel();},{passive:false});
 
