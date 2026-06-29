@@ -512,7 +512,7 @@ function update(dt){
   // skill CDs scale with level: base / (1 + level*0.15)
   function getCD(sk){
     const lv=p.skillLevels[sk]||0;
-    const evolved=lv>=5;
+    const evolved=lv>=4;
     const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5,finFunnel:2.2,novaPulse:3}[sk];
     const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8,finFunnel:1.6,novaPulse:1.5}[sk];
     const b=evolved?evolvedBase:base;
@@ -1053,13 +1053,13 @@ function fireFireball(){
   const p=G.p;
   if(!G.enemies.length) return;
   const lv=p.skillLevels.fireball||0;
-  const evolved=lv>=5; // meteor tier
+  const evolved=lv>=4; // meteor tier
 
   if(evolved){
     // ---- METEOR ----
-    const elv=lv-5; // 0-4
-    const mega=lv>=9;
-    const count=mega?5:lv>=8?3:lv>=7?2:1;   // lv9: 5 meteors per volley
+    const elv=lv-4; // 0-4
+    const mega=lv>=8;
+    const count=mega?5:lv>=5?3:lv>=5?2:1;   // lv9: 5 meteors per volley
     for(let m=0;m<count;m++){
     // target on-screen enemies only — no off-screen sniping
       const t=G.enemies.filter(e=>e.x>0&&e.x<W()&&e.y>0&&e.y<H());
@@ -1098,19 +1098,19 @@ function fireFireball(){
 function fireLightning(){
   const p=G.p;
   const lv=p.skillLevels.lightning||0;
-  const evolved=lv>=5; // storm tier
+  const evolved=lv>=4; // storm tier
 
   if(evolved){
     // ---- STORM ----
-    const elv=lv-5; // 0-4
-    const mega=lv>=9; // Supercell
+    const elv=lv-4; // 0-4
+    const mega=lv>=8; // Supercell
 
     const stormDur=mega?600:280+elv*70;         // longer storm
     const boltRate=mega?2:6-elv*0.8;            // lv5=6fr, lv9=2fr between bolts
     const boltCount=mega?8:3+elv;               // lv5=3, lv6=4 ... lv9=8
     const dmg=Math.round((250+elv*150)*p.damageMult*(p.skillDmgMult||1));
     const stuns=false;
-    const chains=lv>=8;
+    const chains=lv>=5;
     const radius=mega?W()*1.1:150+elv*40; // lv5=150, lv6=190, lv7=230, lv8=270, lv9=full screen
 
     // Immediately fire a first strike so the effect is instant
@@ -1159,12 +1159,12 @@ function fireLightning(){
 function fireIceRing(){
   const p=G.p;
   const lv=p.skillLevels.iceRing||0;
-  const evolved=lv>=5; // blizzard tier
+  const evolved=lv>=4; // blizzard tier
 
   if(evolved){
     // ---- BLIZZARD ----
-    const elv=lv-5; // 0-4
-    const mega=lv>=9;
+    const elv=lv-4; // 0-4
+    const mega=lv>=8;
 
     if(mega){
       // ---- ABSOLUTE ZERO — true screen wipe ----
@@ -1215,7 +1215,7 @@ function fireIceRing(){
     const dmg=Math.round((150+elv*80)*p.damageMult*(p.skillDmgMult||1));
     const freezeDur=180+elv*50;
     const speed=5+elv*0.6;
-    const splashOnFreeze=lv>=7;
+    const splashOnFreeze=lv>=5;
     for(let i=0;i<waveShards;i++){
       const a=(Math.PI*2/waveShards)*i+rnd(-0.08,0.08);
       G.projs.push({x:p.x,y:p.y,
@@ -1232,7 +1232,7 @@ function fireIceRing(){
       type:'blizzardAura',
       r:auraR,
       dmgPerFrame:dmgPerSec/60,
-      freezeDur:lv>=6?999:0,
+      freezeDur:lv>=5?999:0,
       spinAngle:0
     });
 
@@ -1257,17 +1257,17 @@ function fireIceRing(){
 function fireWind(){
   const p=G.p;
   const lv=p.skillLevels.wind||0;
-  const evolved=lv>=5; // tornado tier
+  const evolved=lv>=4; // tornado tier
 
   if(evolved){
     // ---- TORNADO ----
-    const mega=lv>=9;
-    const count=mega?5:lv>=7?3:lv>=6?2:1;
-    const tornadoR=mega?140:70+(lv-5)*18;
-    const life=mega?700:320+(lv-5)*60;
-    const dmg=Math.round((80+(lv-5)*80)*p.damageMult*(p.skillDmgMult||1)); // lv5=80, lv9=400 per tick
-    const electric=lv>=8;
-    const pushForce=mega?12:6+(lv-5)*1.5;
+    const mega=lv>=8;
+    const count=mega?5:lv>=6?3:lv>=5?2:1;
+    const tornadoR=mega?140:70+(lv-4)*18;
+    const life=mega?700:320+(lv-4)*60;
+    const dmg=Math.round((80+(lv-4)*80)*p.damageMult*(p.skillDmgMult||1)); // lv4=80, lv8=400 per tick
+    const electric=lv>=5;
+    const pushForce=mega?12:6+(lv-4)*1.5;
 
     // Find enemy clusters to place tornadoes at — pick random enemies as anchor points
     const anchors=[];
@@ -1296,7 +1296,7 @@ function fireWind(){
         radius:tornadoR, life, dmg,
         tickTimer:0, tickRate:mega?6:10,   // faster tick = more DPS
         electric, pushForce,
-        shredArmour:lv>=6,                 // lv6+ tornado shreds armour
+        shredArmour:lv>=5,                 // lv6+ tornado shreds armour
         spinAngle:rnd(0,Math.PI*2)});
     });
 
@@ -1334,11 +1334,11 @@ function fireWind(){
 function fireSwordStorm(){
   const p=G.p;
   const lv=p.skillLevels.swordStorm||0;
-  const evolved=lv>=5;
+  const evolved=lv>=4;
 
   if(evolved){
-    const elv=lv-5;
-    const mega=lv>=9;
+    const elv=lv-4;
+    const mega=lv>=8;
 
     // Persistent pool — always maintain N swords floating/homing
     // lv5=10, lv6=15, lv7=22, lv8=30, lv9=40
@@ -1374,8 +1374,8 @@ function fireSwordStorm(){
 
       G.projs.push({x:sx,y:sy,vx,vy,r:10,type:'swordProj',
         dmg, target,
-        pierce:lv>=6||mega, explode:lv>=8||mega,
-        pierceCount:mega?999:lv>=6?3:0,
+        pierce:lv>=5||mega, explode:lv>=5||mega,
+        pierceCount:mega?999:lv>=5?3:0,
         life:mega?400:280,
         angle:Math.atan2(vy,vx), trail:[]});
     }
@@ -1401,9 +1401,9 @@ function fireSwordStorm(){
 function fireFinFunnel(){
   const p=G.p;
   const lv=p.skillLevels.finFunnel||0;
-  const evolved=lv>=5;
-  const elv=evolved?lv-5:0;
-  const mega=lv>=9;
+  const evolved=lv>=4;
+  const elv=evolved?lv-4:0;
+  const mega=lv>=8;
 
   // Number of funnels
   const funnelCount=mega?9:evolved?(4+elv):2+Math.floor(lv/2);
@@ -1417,9 +1417,9 @@ function fireFinFunnel(){
       : Math.round((25+lv*15)*p.damageMult*(p.skillDmgMult||1)); // lv0=25, lv4=85 — deliberately weak pre-evolution
 
   const pierce=lv>=4||evolved;
-  const chain=lv>=7;
-  const explodeOnKill=lv>=8;
-  const beamsPerFunnel=lv>=6?2:1;
+  const chain=lv>=5;
+  const explodeOnKill=lv>=5;
+  const beamsPerFunnel=lv>=5?2:1;
 
   if(!G.enemies||G.enemies.length===0) return;
   const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
@@ -1486,9 +1486,9 @@ function fireFinFunnel(){
 function fireNovaPulse(){
   const p=G.p;
   const lv=p.skillLevels.novaPulse||0;
-  const evolved=lv>=5;
-  const elv=evolved?lv-5:0;
-  const mega=lv>=9;
+  const evolved=lv>=4;
+  const elv=evolved?lv-4:0;
+  const mega=lv>=8;
 
   const dmg=mega
     ? Math.round(1800*p.damageMult*(p.skillDmgMult||1))
@@ -1504,7 +1504,7 @@ function fireNovaPulse(){
   const slow=lv>=2;
   const debuff=lv>=4; // enemies take +20% dmg for 3s
   const rings=evolved?3:lv>=3?2:1;
-  const mega5th=lv>=8; // every 5th pulse is mega
+  const mega5th=lv>=5; // every 5th pulse is mega
 
   // Track pulse count for overcharge
   p._pulseCount=(p._pulseCount||0)+1;
@@ -1534,7 +1534,7 @@ function fireNovaPulse(){
   }
 
   // lv7+: release homing sparks
-  if(lv>=7&&G.enemies.length>0){
+  if(lv>=5&&G.enemies.length>0){
     const sparkCount=3+elv*2;
     const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
     for(let i=0;i<Math.min(sparkCount,G.enemies.length);i++){
@@ -2133,9 +2133,9 @@ function drawFunnels(){
   if(!G||!G.p) return;
   const p=G.p;
   const lv=p.skillLevels.finFunnel||0;
-  const evolved=lv>=5;
-  const elv=evolved?lv-5:0;
-  const mega=lv>=9;
+  const evolved=lv>=4;
+  const elv=evolved?lv-4:0;
+  const mega=lv>=8;
   const now=Date.now()*0.001;
 
   const funnelCount=mega?9:evolved?(4+elv):2+Math.floor(lv/2);
@@ -3004,16 +3004,15 @@ function adminSkill(sk){
   if(!p.skills.includes(sk)) p.skills.push(sk);
   const cards=SKILL_UPGRADES[sk];
   const cur=p.skillLevels[sk]||0;
-  if(cur<(cards?.length||8)) p.skillLevels[sk]=cur+1;
+  if(cur<(cards?.length||8)) p.skillLevels[sk]=cur+1; // max = cards.length = 8
   G.skillCD[sk]=0;
-  console.log(sk,'→ lv',p.skillLevels[sk]);
 }
 function adminMaxAllSkills(){
   if(!G) return;
   ['fireball','lightning','iceRing','wind','swordStorm','finFunnel','novaPulse'].forEach(sk=>{
     const p=G.p;
     if(!p.skills.includes(sk)) p.skills.push(sk);
-    p.skillLevels[sk]=9;
+    p.skillLevels[sk]=8; // 8 = max (lv9 in display)
     G.skillCD[sk]=0;
   });
 }
