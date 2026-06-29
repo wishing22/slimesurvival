@@ -105,6 +105,10 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
 #nameInput::placeholder{color:#444;}
 
 @keyframes upgradePulse{from{box-shadow:0 0 6px #534AB7;}to{box-shadow:0 0 14px #AFA9EC,0 0 4px #fff;}}
+.abtn{background:#1a1a3a;border:1px solid #444;border-radius:8px;color:#fff;font-size:12px;padding:7px 12px;cursor:pointer;touch-action:manipulation;}
+.abtn:active{transform:scale(0.96);}
+.abtn.green{border-color:#1D9E75;color:#5DCAA5;}
+.abtn.red{border-color:#7a3030;color:#ff8888;}
 </style>
 </head>
 <body>
@@ -164,7 +168,96 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
       <button id="upgradeModeBtn" style="background:#1a1a3a;border:1.5px solid #534AB7;border-radius:10px;color:#fff;font-size:13px;padding:8px 14px;cursor:pointer;pointer-events:all;min-width:130px;">⚡ Auto popup</button>
     </div>
     <button class="btn" style="background:#2a1a1a;border:1.5px solid #7a3030;" id="quitBtn">💾 Save &amp; Quit</button>
+    <button id="adminPanelBtn" style="background:transparent;border:none;color:#333;font-size:11px;cursor:pointer;pointer-events:all;margin-top:4px;">⚙ Admin</button>
   </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.95);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px;box-sizing:border-box;">
+    <div style="max-width:420px;margin:0 auto;display:flex;flex-direction:column;gap:12px;">
+      <h2 style="color:#FFD700;font-size:20px;margin:0;">⚙️ Admin Panel</h2>
+
+      <!-- Wave -->
+      <div style="background:#141428;border:1px solid #333;border-radius:10px;padding:12px;">
+        <p style="color:#aaa;font-size:12px;margin:0 0 8px;">Wave / Time</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="abtn" onclick="adminSetWave(5)">Wave 5</button>
+          <button class="abtn" onclick="adminSetWave(15)">Wave 15</button>
+          <button class="abtn" onclick="adminSetWave(30)">Wave 30</button>
+          <button class="abtn" onclick="adminSetWave(50)">Wave 50</button>
+          <button class="abtn" onclick="adminSetWave(100)">Wave 100</button>
+          <input id="adminWaveInput" type="number" min="1" max="999" placeholder="Custom wave" style="background:#0a0a1a;border:1px solid #444;border-radius:8px;color:#fff;font-size:13px;padding:6px 10px;width:110px;">
+          <button class="abtn green" onclick="adminSetWave(parseInt(document.getElementById('adminWaveInput').value)||1)">Set</button>
+        </div>
+      </div>
+
+      <!-- Player Level / XP -->
+      <div style="background:#141428;border:1px solid #333;border-radius:10px;padding:12px;">
+        <p style="color:#aaa;font-size:12px;margin:0 0 8px;">Player Level</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="abtn" onclick="adminSetLevel(10)">Lv 10</button>
+          <button class="abtn" onclick="adminSetLevel(20)">Lv 20</button>
+          <button class="abtn" onclick="adminSetLevel(50)">Lv 50</button>
+          <input id="adminLevelInput" type="number" min="1" max="999" placeholder="Custom level" style="background:#0a0a1a;border:1px solid #444;border-radius:8px;color:#fff;font-size:13px;padding:6px 10px;width:110px;">
+          <button class="abtn green" onclick="adminSetLevel(parseInt(document.getElementById('adminLevelInput').value)||1)">Set</button>
+        </div>
+      </div>
+
+      <!-- Skills -->
+      <div style="background:#141428;border:1px solid #333;border-radius:10px;padding:12px;">
+        <p style="color:#aaa;font-size:12px;margin:0 0 8px;">Skills (press multiple times to level up)</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="abtn" onclick="adminSkill('fireball')">🔥 Fireball</button>
+          <button class="abtn" onclick="adminSkill('lightning')">⚡ Lightning</button>
+          <button class="abtn" onclick="adminSkill('iceRing')">❄️ Ice Ring</button>
+          <button class="abtn" onclick="adminSkill('wind')">💨 Wind</button>
+          <button class="abtn" onclick="adminSkill('swordStorm')">🗡️ Sword Storm</button>
+          <button class="abtn" onclick="adminSkill('finFunnel')">🔮 Fin Funnels</button>
+          <button class="abtn" onclick="adminSkill('novaPulse')">💫 Nova Pulse</button>
+          <button class="abtn red" onclick="adminMaxAllSkills()">⚡ Max All Skills</button>
+        </div>
+      </div>
+
+      <!-- Weapons -->
+      <div style="background:#141428;border:1px solid #333;border-radius:10px;padding:12px;">
+        <p style="color:#aaa;font-size:12px;margin:0 0 8px;">Weapons</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="abtn" onclick="adminAddWeapon('sword')">⚔️ +Sword</button>
+          <button class="abtn" onclick="adminAddWeapon('spear')">🗡️ +Spear</button>
+          <button class="abtn red" onclick="adminMaxWeapons()">⚡ Max Weapons</button>
+        </div>
+      </div>
+
+      <!-- Scaling upgrades -->
+      <div style="background:#141428;border:1px solid #333;border-radius:10px;padding:12px;">
+        <p style="color:#aaa;font-size:12px;margin:0 0 8px;">Scaling Upgrades (each press = 1 stack)</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="abtn" onclick="adminScaling('dmg')">💥 Power</button>
+          <button class="abtn" onclick="adminScaling('cdmg')">⚡✨ Skill Dmg</button>
+          <button class="abtn" onclick="adminScaling('hp')">❤️ HP</button>
+          <button class="abtn" onclick="adminScaling('regen')">💚 Regen</button>
+          <button class="abtn" onclick="adminScaling('speed')">👟 Speed</button>
+          <button class="abtn" onclick="adminScaling('spin')">🌀 Spin</button>
+          <button class="abtn" onclick="adminScaling('cd')">⏱️ Rapid Fire</button>
+          <button class="abtn" onclick="adminScaling('magnet')">🧲 Magnet</button>
+          <button class="abtn" onclick="adminScaling('ls')">🩸 Lifesteal</button>
+          <button class="abtn" onclick="adminScaling('vamp')">🧛 Vampirism</button>
+          <button class="abtn red" onclick="adminMaxScaling()">⚡ Max All</button>
+        </div>
+      </div>
+
+      <!-- HP -->
+      <div style="background:#141428;border:1px solid #333;border-radius:10px;padding:12px;">
+        <p style="color:#aaa;font-size:12px;margin:0 0 8px;">HP</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="abtn green" onclick="adminHeal()">💚 Full Heal</button>
+          <button class="abtn" onclick="adminInvincible()">🛡️ Toggle God Mode</button>
+        </div>
+      </div>
+
+      <button class="btn" onclick="closeAdminPanel()" style="margin-top:4px;">✕ Close</button>
+    </div>
+  </div>
+
   <div id="upgradeScreen"></div>
 </div>
 <script>
@@ -613,8 +706,8 @@ function update(dt){
         e.pushVy=(e.pushVy||0)+dir.y*pr.pushForce;
         if(pr.slow) e.slowTimer=Math.max(e.slowTimer||0,60);
         if(pr.debuff) e.debuffTimer=180;
-        if(pr.mega&&lv>=9) e.slowTimer=Math.max(e.slowTimer||0,120);
-        spawnBurst(e.x,e.y,pr.col+'0.6)',4);
+        if(pr.mega) e.slowTimer=Math.max(e.slowTimer||0,120); // lv9 supernova stun
+        spawnBurst(e.x,e.y,'#aa88ff',4);
       }
     });
     return true;
@@ -876,7 +969,7 @@ function update(dt){
       const d=norm({x:p.x-e.x,y:p.y-e.y});
       e.x+=d.x*e.spd*sm*dt; e.y+=d.y*e.spd*sm*dt;
     }
-    if(p.invTimer<=0&&dist(e,p)<e.r+p.r-4){
+    if(p.invTimer<=0&&!p._godMode&&dist(e,p)<e.r+p.r-4){
       // flat hit: full enemy dmg, no dt scaling. invTimer in frames at 60fps ~ 0.4s window
       p.hp-=e.dmg; p.invTimer=40;
       spawnBurst(p.x,p.y,'#fff',6);
@@ -1685,14 +1778,14 @@ function buildUpgradePool(){
   p.skills.forEach(sk=>{
     const lv=p.skillLevels[sk]||0;
     const cards=SKILL_UPGRADES[sk];
-    if(cards&&lv<cards.length){
-      const card=cards[lv];
+    if(!cards) return;
+    if(lv>=cards.length) return; // already at max — don't show
+    const card=cards[lv];
       // Block if wave gate not yet reached
       if(card.minWave && G.wave < card.minWave) return;
       pool.push({id:'skillup_'+sk+'_'+(lv+1), icon:card.icon,
         name:card.name, desc:card.desc, type:'skillup', sup:sk,
         minWave:card.minWave||0});
-    }
   });
 
   // Infinitely repeatable scaling upgrades — only available after player has 2+ skills or level 5+
@@ -1758,7 +1851,11 @@ function applyUpgrade(u){
   const p=G.p;
   if(u.type==='weapon'&&p.weapons.length<16) p.weapons.push({type:u.wtype,masterAngle:0,hitCD:{}});
   else if(u.type==='skill'&&!p.skills.includes(u.stype)) p.skills.push(u.stype);
-  else if(u.type==='skillup') p.skillLevels[u.sup]=(p.skillLevels[u.sup]||0)+1;
+  else if(u.type==='skillup'){
+    const currentLv=p.skillLevels[u.sup]||0;
+    const maxCards=SKILL_UPGRADES[u.sup]?.length||8;
+    if(currentLv<maxCards) p.skillLevels[u.sup]=currentLv+1; // never exceed max level
+  }
   else if(u.type==='stat'){
     if(u.stat==='moveSpeed') p.moveSpeed*=(1+u.amt);
     else if(u.stat==='spinSpeed') p.spinSpeed*=(1+u.amt);
@@ -1994,6 +2091,18 @@ function render(){
   }
   drawBg();
   if(!G) return;
+  // Draw storm cloud FIRST — behind all entities so enemies/orbs are visible inside
+  G.projs.filter(p=>p.type==='stormCloud').forEach(pr=>{
+    ctx.save();
+    ctx.globalAlpha=0.28;
+    ctx.fillStyle=pr.mega?'#1a0030':'#0a0a1a';
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=0.5;
+    ctx.strokeStyle=pr.mega?'rgba(180,100,255,0.6)':'rgba(100,140,255,0.5)';
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+  });
   // Absolute Zero white flash overlay
   if(G.flashTimer>0){
     ctx.save();
@@ -2518,24 +2627,20 @@ function drawProj(pr){
   }
 
   if(pr.type==='stormCloud'){
-    ctx.save();
+    // Background circle drawn separately before all entities — only draw the animated elements here
     const fade=Math.min(1, pr.life/30);
     const t2=Date.now()*0.003;
-    ctx.globalAlpha=fade*0.38;
-    ctx.fillStyle=pr.mega?'rgba(40,0,80,0.7)':'rgba(10,10,50,0.65)';
-    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.fill();
-    ctx.globalAlpha=fade*0.65;
-    ctx.strokeStyle=pr.mega?'rgba(180,100,255,0.8)':'rgba(100,140,255,0.7)';
-    ctx.lineWidth=2.5;
-    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
-    ctx.globalAlpha=fade*0.48;
+    ctx.save();
+    // Spinning arc details inside the circle
+    ctx.globalAlpha=fade*0.4;
     for(let i=0;i<(pr.mega?8:4);i++){
       const a=t2*1.4+i*(Math.PI*2/(pr.mega?8:4));
       const sr=pr.radius*(0.3+0.5*((i%3)/3));
-      ctx.strokeStyle=pr.mega?'rgba(220,160,255,0.6)':'rgba(140,180,255,0.6)';
+      ctx.strokeStyle=pr.mega?'rgba(220,160,255,0.5)':'rgba(140,180,255,0.5)';
       ctx.lineWidth=1.5;
       ctx.beginPath();ctx.arc(pr.cx,pr.cy,sr,a,a+1.0);ctx.stroke();
     }
+    // Pulsing centre eye
     const flashPulse=0.5+0.5*Math.sin(t2*8);
     ctx.globalAlpha=fade*flashPulse*0.75;
     ctx.fillStyle=pr.mega?'rgba(200,150,255,0.9)':'rgba(180,210,255,0.9)';
@@ -2857,6 +2962,90 @@ document.addEventListener('keyup',e=>{
   if(e.key==='ArrowUp'   ||k==='w') joy.dy=0;
   if(e.key==='ArrowDown' ||k==='s') joy.dy=0;
 });
+// ---- ADMIN PANEL ----
+function openAdminPanel(){
+  if(!G||!G.running) return;
+  paused=true;
+  document.getElementById('pauseScreen').style.display='none';
+  document.getElementById('adminPanel').style.display='block';
+}
+function closeAdminPanel(){
+  document.getElementById('adminPanel').style.display='none';
+  paused=false;
+}
+function adminSetWave(n){
+  if(!G) return;
+  G.wave=Math.max(1,n);
+  G.waveTimer=0;
+  showWave(G.wave);
+}
+function adminSetLevel(n){
+  if(!G) return;
+  const p=G.p;
+  p.level=Math.max(1,n);
+  // Set XP to 0 at that level
+  p.xp=0;
+  // Recalculate xpNext for this level
+  let xpNext=20;
+  for(let i=1;i<p.level;i++){
+    const inc=i>70?1500:i>40?500:i>15?120:20;
+    xpNext+=inc;
+  }
+  p.xpNext=xpNext;
+}
+function adminSkill(sk){
+  if(!G) return;
+  const p=G.p;
+  if(!p.skills.includes(sk)) p.skills.push(sk);
+  const cards=SKILL_UPGRADES[sk];
+  const cur=p.skillLevels[sk]||0;
+  if(cur<(cards?.length||8)) p.skillLevels[sk]=cur+1;
+  G.skillCD[sk]=0;
+  console.log(sk,'→ lv',p.skillLevels[sk]);
+}
+function adminMaxAllSkills(){
+  if(!G) return;
+  ['fireball','lightning','iceRing','wind','swordStorm','finFunnel','novaPulse'].forEach(sk=>{
+    const p=G.p;
+    if(!p.skills.includes(sk)) p.skills.push(sk);
+    p.skillLevels[sk]=9;
+    G.skillCD[sk]=0;
+  });
+}
+function adminAddWeapon(type){
+  if(!G||G.p.weapons.length>=16) return;
+  G.p.weapons.push({type,masterAngle:0,hitCD:{}});
+}
+function adminMaxWeapons(){
+  if(!G) return;
+  while(G.p.weapons.length<16){
+    G.p.weapons.push({type:G.p.weapons.length%2===0?'sword':'spear',masterAngle:0,hitCD:{}});
+  }
+}
+function adminScaling(skey){
+  if(!G) return;
+  const u=SCALING_UPGRADES.find(s=>s.skey===skey);
+  if(!u) return;
+  applyUpgrade({...u, desc:u.desc(0), _stackKey:u.skey});
+}
+function adminMaxScaling(){
+  if(!G) return;
+  SCALING_UPGRADES.forEach(u=>{
+    for(let i=0;i<5;i++) applyUpgrade({...u, desc:u.desc(i), _stackKey:u.skey});
+  });
+}
+function adminHeal(){
+  if(!G) return;
+  G.p.hp=G.p.maxHp;
+}
+function adminInvincible(){
+  if(!G) return;
+  G.p._godMode=!G.p._godMode;
+  console.log('God mode:',G.p._godMode);
+}
+document.getElementById('adminPanelBtn').addEventListener('click',openAdminPanel);
+document.getElementById('adminPanelBtn').addEventListener('touchend',e=>{e.preventDefault();openAdminPanel();},{passive:false});
+
 function updateUpgradeModeBtn(){
   const btn=document.getElementById('upgradeModeBtn');
   if(!btn) return;
