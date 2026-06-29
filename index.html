@@ -190,6 +190,7 @@ const UPGRADES_STATIC=[
   {id:'wind',      icon:'💨',  name:'Wind Burst',    desc:'Pushes all nearby enemies away every 4s',           type:'skill',  stype:'wind'},
   {id:'swordStorm',icon:'🗡️✨', name:'Sword Storm',  desc:'Launches homing swords at enemies every 2.5s',      type:'skill',  stype:'swordStorm'},
   {id:'finFunnel', icon:'🔮',   name:'Fin Funnels',  desc:'2 remote funnels orbit and fire laser beams',        type:'skill',  stype:'finFunnel'},
+  {id:'novaPulse', icon:'💫',   name:'Nova Pulse',   desc:'A shockwave expands from you every 3s, pushing and damaging all enemies', type:'skill', stype:'novaPulse'},
   // Stats — one clear pick per category, no overlap with scaling
   {id:'heartrate', icon:'💓',  name:'Heart Rate',    desc:'Hearts spawn 50% more often',                       type:'heal',   htype:'heartRate'},
   // Healing — distinct mechanics only
@@ -284,6 +285,16 @@ const SKILL_UPGRADES={
     {name:'Psyco Frame Lv 8',       icon:'🌟',   desc:'Funnels explode on kill · shockwave damages nearby enemies', minWave:18},
     {name:'Psyco Frame Lv 9',       icon:'🌟',   desc:'AWAKENING: 9 funnels fire mega-beams simultaneously · all-screen coverage', minWave:25},
   ],
+  novaPulse:[
+    {name:'Nova Pulse Lv 2',        icon:'💫',   desc:'Larger shockwave · +20 damage · slows enemies hit'},
+    {name:'Nova Pulse Lv 3',        icon:'💫',   desc:'Double rings — inner and outer pulse simultaneously'},
+    {name:'Nova Pulse Lv 4',        icon:'💫',   desc:'Enemies caught in pulse take 20% more damage for 3s'},
+    {name:'🌀 PULSAR — Lv 5',       icon:'🌀',   desc:'EVOLVES into Pulsar! Continuous rhythmic pulse every 1.5s — never stops'},
+    {name:'Pulsar Lv 6',            icon:'🌀',   desc:'Triple rings · outer ring deals bonus damage'},
+    {name:'Pulsar Lv 7',            icon:'🌀',   desc:'Pulses release homing sparks that chase enemies',   minWave:12},
+    {name:'Pulsar Lv 8',            icon:'🌀',   desc:'Overcharge: every 5th pulse is a mega-burst',       minWave:18},
+    {name:'Pulsar Lv 9',            icon:'🌀',   desc:'SUPERNOVA: pulse covers full screen · enemies caught in centre are stunned', minWave:25},
+  ],
 };
 
 let G=null, paused=false, lastTs=0, upgradeMode='auto'; // 'auto' = pause+show immediately, 'save' = queue for later
@@ -298,7 +309,7 @@ function newGame(){
     invTimer:0,wobble:0,eyeDir:0,
     weapons:[{type:'sword',masterAngle:0,hitCD:{}}],
     skills:[],
-    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0},
+    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0,novaPulse:0},
     spinSpeed:1.0,damageMult:1.0,magnetRange:1.0,
     skillDmgMult:1.0,  // separate multiplier for skill damage only
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
@@ -314,7 +325,7 @@ function newGame(){
     spawnTimer:0,spawnRate:110,
     heartSpawnTimer:0,heartSpawnRate:18,
     kills:0,score:0,elapsed:0,
-    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0},
+    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0,novaPulse:0},
     running:true,upgrading:false, shakeTimer:0, flashTimer:0,
     passiveXpTimer:0, pendingUpgrades:0, pendingChoices:[],
     swordProjCount:0,
@@ -409,8 +420,8 @@ function update(dt){
   function getCD(sk){
     const lv=p.skillLevels[sk]||0;
     const evolved=lv>=5;
-    const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5,finFunnel:2.2}[sk];
-    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8,finFunnel:1.6}[sk];
+    const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5,finFunnel:2.2,novaPulse:3}[sk];
+    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8,finFunnel:1.6,novaPulse:1.5}[sk];
     const b=evolved?evolvedBase:base;
     const lvFactor=Math.min(lv,9);
     const raw=Math.max(0.3, b/(1+lvFactor*0.18));
@@ -425,6 +436,7 @@ function update(dt){
       if(sk==='wind') fireWind();
       if(sk==='swordStorm') fireSwordStorm();
       if(sk==='finFunnel') fireFinFunnel();
+      if(sk==='novaPulse') fireNovaPulse();
     }
   });
 
@@ -437,7 +449,8 @@ function update(dt){
     if(pr.type==='wind'||pr.type==='tornado'||
        pr.type==='stormCloud'||pr.type==='boltFlash'||pr.type==='boltChain'||
        pr.type==='blizzardAura'||pr.type==='iceShockwave'||pr.type==='fireZone'||
-       pr.type==='swordProj'||pr.type==='funnelBeam'||pr.type==='funnelOrbit') return true;
+       pr.type==='swordProj'||pr.type==='funnelBeam'||pr.type==='funnelOrbit'||
+       pr.type==='novaRing'||pr.type==='novaSpark') return true;
 
     // ---- METEOR — falls from top ----
     if(pr.type==='meteor'){
@@ -581,7 +594,55 @@ function update(dt){
   });
   G.swordProjCount=G.projs.filter(pr=>pr.type==='swordProj').length;
 
-  // funnel beams — sustained laser damage along beam line
+  // nova rings — expanding pulse rings
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='novaRing') return true;
+    pr.radius+=pr.growRate*dt;
+    pr.life-=dt;
+    if(pr.life<=0||pr.radius>=pr.maxR) return false;
+    // Damage enemies the ring passes through
+    G.enemies.forEach(e=>{
+      if(pr.hitEnemies.has(e)) return;
+      const d=dist(e,{x:pr.cx,y:pr.cy});
+      if(d<pr.radius+e.r&&d>pr.radius-18-e.r){
+        pr.hitEnemies.add(e);
+        hitEnemy(e,Math.round(pr.dmg));
+        // Push outward
+        const dir=norm({x:e.x-pr.cx,y:e.y-pr.cy});
+        e.pushVx=(e.pushVx||0)+dir.x*pr.pushForce;
+        e.pushVy=(e.pushVy||0)+dir.y*pr.pushForce;
+        if(pr.slow) e.slowTimer=Math.max(e.slowTimer||0,60);
+        if(pr.debuff) e.debuffTimer=180;
+        if(pr.mega&&lv>=9) e.slowTimer=Math.max(e.slowTimer||0,120);
+        spawnBurst(e.x,e.y,pr.col+'0.6)',4);
+      }
+    });
+    return true;
+  });
+
+  // nova sparks — homing projectiles released by pulsar lv7+
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='novaSpark') return true;
+    pr.life-=dt;
+    if(pr.life<=0) return false;
+    // Home toward target
+    if(pr.target&&pr.target.hp>0){
+      const d=norm({x:pr.target.x-pr.x,y:pr.target.y-pr.y});
+      pr.vx=lerp(pr.vx,d.x*6,0.15);
+      pr.vy=lerp(pr.vy,d.y*6,0.15);
+    } else if(G.enemies.length>0){
+      pr.target=G.enemies.reduce((a,b)=>dist(a,pr)<dist(b,pr)?a:b);
+    }
+    pr.x+=pr.vx*dt; pr.y+=pr.vy*dt;
+    for(const e of G.enemies){
+      if(dist(pr,e)<pr.r+e.r){
+        hitEnemy(e,Math.round(pr.dmg));
+        spawnBurst(pr.x,pr.y,pr.col,6);
+        return false;
+      }
+    }
+    return true;
+  });
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='funnelBeam') return true;
     pr.life-=dt;
@@ -799,6 +860,7 @@ function update(dt){
     if(e.freezeTimer>0) e.freezeTimer-=dt;
     if(e.slowTimer>0) e.slowTimer-=dt;
     if(e.shredTimer>0) e.shredTimer-=dt;
+    if(e.debuffTimer>0) e.debuffTimer-=dt;
     e.wobble+=dt*0.11;
     // apply push velocity
     if(e.pushVx||e.pushVy){
@@ -1328,6 +1390,78 @@ function fireFinFunnel(){
   }
 }
 
+function fireNovaPulse(){
+  const p=G.p;
+  const lv=p.skillLevels.novaPulse||0;
+  const evolved=lv>=5;
+  const elv=evolved?lv-5:0;
+  const mega=lv>=9;
+
+  const dmg=mega
+    ? Math.round(1800*p.damageMult*(p.skillDmgMult||1))
+    : evolved
+      ? Math.round((300+elv*150)*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((40+lv*30)*p.damageMult*(p.skillDmgMult||1));
+
+  const maxR=mega?Math.max(W(),H())
+    : evolved?(250+elv*60)
+    : (130+lv*30);
+
+  const pushForce=evolved?8:4;
+  const slow=lv>=2;
+  const debuff=lv>=4; // enemies take +20% dmg for 3s
+  const rings=evolved?3:lv>=3?2:1;
+  const mega5th=lv>=8; // every 5th pulse is mega
+
+  // Track pulse count for overcharge
+  p._pulseCount=(p._pulseCount||0)+1;
+  const overcharge=mega5th&&(p._pulseCount%5===0);
+
+  // Spawn expanding ring(s)
+  for(let r=0;r<rings;r++){
+    const delay=r*8; // stagger rings slightly
+    const ringDmg=r===rings-1&&evolved ? Math.round(dmg*1.5) : dmg; // outer ring bonus
+    G.projs.push({
+      type:'novaRing',
+      cx:p.x, cy:p.y,
+      radius:12,
+      maxR:maxR*(0.5+r*0.3), // inner rings smaller
+      growRate:(maxR*(0.5+r*0.3)-12)/(overcharge?80:45+lv*3),
+      life:overcharge?80:45+lv*3,
+      maxLife:overcharge?80:45+lv*3,
+      dmg:overcharge?ringDmg*3:ringDmg,
+      pushForce:overcharge?pushForce*2:pushForce,
+      slow, debuff, mega, overcharge,
+      hitEnemies:new Set(), // track hit enemies to avoid multi-hit
+      col:overcharge?'rgba(255,160,0,'
+        :mega?'rgba(255,100,255,'
+        :evolved?'rgba(160,100,255,'
+        :'rgba(120,180,255,',
+    });
+  }
+
+  // lv7+: release homing sparks
+  if(lv>=7&&G.enemies.length>0){
+    const sparkCount=3+elv*2;
+    const sorted=[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p));
+    for(let i=0;i<Math.min(sparkCount,G.enemies.length);i++){
+      const a=rnd(0,Math.PI*2);
+      G.projs.push({
+        x:p.x+Math.cos(a)*20, y:p.y+Math.sin(a)*20,
+        vx:Math.cos(a)*5, vy:Math.sin(a)*5,
+        type:'novaSpark',
+        r:6, dmg:Math.round(dmg*0.4),
+        target:sorted[i], life:120,
+        col:mega?'#ff88ff':evolved?'#aa88ff':'#88aaff'
+      });
+    }
+  }
+
+  // Screen flash for overcharge/mega
+  if(overcharge||mega) G.flashTimer=5;
+  if(overcharge) G.shakeTimer=4;
+}
+
 function spawnWindParticles(x,y,r){
   for(let i=0;i<20;i++){
     const a=rnd(0,Math.PI*2), d=rnd(0.3,1);
@@ -1400,6 +1534,7 @@ function makeEnemy(){
 function hitEnemy(e,dmg){
   if(!e||e.hp<=0) return;
   if(e.shredTimer>0) dmg=Math.round(dmg*1.2); // wind shred bonus
+  if(e.debuffTimer>0) dmg=Math.round(dmg*1.2); // nova pulse debuff
   e.hp-=dmg; e.hitFlash=10;
   G.texts.push({x:e.x,y:e.y-e.r,txt:'-'+dmg,col:'#fff',life:40});
   spawnBurst(e.x,e.y,e.col,4);
@@ -1560,12 +1695,14 @@ function buildUpgradePool(){
     }
   });
 
-  // Infinitely repeatable scaling upgrades — always in pool
+  // Infinitely repeatable scaling upgrades — only available after player has 2+ skills or level 5+
   const stacks=p.scalingStacks||{};
-  SCALING_UPGRADES.forEach(u=>{
-    const n=stacks[u.skey]||0;
-    pool.push({...u, desc:u.desc(n), _stackKey:u.skey});
-  });
+  if(p.skills.length>=2||p.level>=5){
+    SCALING_UPGRADES.forEach(u=>{
+      const n=stacks[u.skey]||0;
+      pool.push({...u, desc:u.desc(n), _stackKey:u.skey});
+    });
+  }
 
   return pool;
 }
@@ -2266,6 +2403,40 @@ function drawProj(pr){
     ctx.strokeStyle='rgba(255,255,255,0.95)';
     ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(pr.cx,pr.cy,Math.max(0,pr.radius-4),0,Math.PI*2);ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // nova ring
+  if(pr.type==='novaRing'){
+    const f=pr.life/(pr.maxLife||45);
+    ctx.save();
+    // Outer glow
+    ctx.globalAlpha=f*0.25;
+    ctx.strokeStyle=pr.col+'0.4)';
+    ctx.lineWidth=22*f;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
+    // Core ring
+    ctx.globalAlpha=f*0.85;
+    ctx.strokeStyle=pr.col+'1)';
+    ctx.lineWidth=pr.overcharge?6:3;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
+    // Inner bright edge
+    ctx.globalAlpha=f;
+    ctx.strokeStyle='rgba(255,255,255,0.6)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius-2,0,Math.PI*2);ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // nova spark
+  if(pr.type==='novaSpark'){
+    const f=pr.life/120;
+    ctx.save();
+    ctx.globalAlpha=f*0.8;
+    ctx.fillStyle=pr.col||'#88aaff';
+    ctx.shadowColor=pr.col||'#88aaff';
+    ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(pr.x,pr.y,pr.r*f+3,0,Math.PI*2);ctx.fill();
     ctx.restore(); return;
   }
 
