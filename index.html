@@ -235,6 +235,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#0f0f1e;overflow:
           <button class="abtn" onclick="adminSkill('swordStorm')">🗡️ Sword Storm</button>
           <button class="abtn" onclick="adminSkill('finFunnel')">🔮 Fin Funnels</button>
           <button class="abtn" onclick="adminSkill('novaPulse')">💫 Nova Pulse</button>
+          <button class="abtn" onclick="adminSkill('trident')">🔱 Trident</button>
           <button class="abtn red" onclick="adminMaxAllSkills()">⚡ Max All Skills</button>
         </div>
       </div>
@@ -312,6 +313,7 @@ const UPGRADES_STATIC=[
   {id:'swordStorm',icon:'🗡️✨', name:'Sword Storm',  desc:'Launches homing swords at enemies every 2.5s',      type:'skill',  stype:'swordStorm'},
   {id:'finFunnel', icon:'🔮',   name:'Fin Funnels',  desc:'2 remote funnels orbit and fire laser beams',        type:'skill',  stype:'finFunnel'},
   {id:'novaPulse', icon:'💫',   name:'Nova Pulse',   desc:'A shockwave expands from you every 3s, pushing and damaging all enemies', type:'skill', stype:'novaPulse'},
+  {id:'trident',   icon:'🔱',   name:'Trident',      desc:'Fires 3 piercing spears in a fan — bounces off screen edges', type:'skill', stype:'trident'},
   // Stats — one clear pick per category, no overlap with scaling
   {id:'heartrate', icon:'💓',  name:'Heart Rate',    desc:'Hearts spawn 50% more often',                       type:'heal',   htype:'heartRate'},
   // Healing — distinct mechanics only
@@ -416,6 +418,16 @@ const SKILL_UPGRADES={
     {name:'Pulsar Lv 8',            icon:'🌀',   desc:'Overcharge: every 5th pulse is a mega-burst',       minWave:18},
     {name:'Pulsar Lv 9',            icon:'🌀',   desc:'SUPERNOVA: pulse covers full screen · enemies caught in centre are stunned', minWave:25},
   ],
+  trident:[
+    {name:'Trident Lv 2',           icon:'🔱',   desc:'+1 spear (4 total) · spears travel faster'},
+    {name:'Trident Lv 3',           icon:'🔱',   desc:'+1 spear (5 total) · each bounce deals +50% damage'},
+    {name:'Trident Lv 4',           icon:'🔱',   desc:'Spears explode on each bounce · small splash damage'},
+    {name:"🌊 POSEIDON'S WRATH — Lv 5",icon:'🌊', desc:"EVOLVES! Spears grow larger each bounce · leave water trail"},
+    {name:"Poseidon's Wrath Lv 6",  icon:'🌊',   desc:'Spears split into 2 on first bounce · more bounces allowed'},
+    {name:"Poseidon's Wrath Lv 7",  icon:'🌊',   desc:'Spears home slightly toward enemies between bounces', minWave:12},
+    {name:"Poseidon's Wrath Lv 8",  icon:'🌊',   desc:'Tidal surge: every 4th volley fires a massive wave spear', minWave:18},
+    {name:"Poseidon's Wrath Lv 9",  icon:'🌊',   desc:'OCEAN FURY: 9 spears in full 360° · bounce endlessly · screen-wide chaos', minWave:25},
+  ],
 };
 
 let G=null, paused=false, lastTs=0, upgradeMode='auto'; // 'auto' = pause+show immediately, 'save' = queue for later
@@ -430,7 +442,7 @@ function newGame(){
     invTimer:0,wobble:0,eyeDir:0,
     weapons:[{type:'sword',masterAngle:0,hitCD:{}}],
     skills:[],
-    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0,novaPulse:0},
+    skillLevels:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0,novaPulse:0,trident:0},
     spinSpeed:1.0,damageMult:1.0,magnetRange:1.0,
     skillDmgMult:1.0,  // separate multiplier for skill damage only
     cdReduction:1.0,   // multiplier on all cooldowns (0.9 = 10% faster)
@@ -446,7 +458,7 @@ function newGame(){
     spawnTimer:0,spawnRate:110,
     heartSpawnTimer:0,heartSpawnRate:18,
     kills:0,score:0,elapsed:0,
-    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0,novaPulse:0},
+    skillCD:{fireball:0,lightning:0,iceRing:0,wind:0,swordStorm:0,finFunnel:0,novaPulse:0,trident:0},
     running:true,upgrading:false, shakeTimer:0, flashTimer:0,
     passiveXpTimer:0, pendingUpgrades:0, pendingChoices:[],
     swordProjCount:0,
@@ -541,8 +553,8 @@ function update(dt){
   function getCD(sk){
     const lv=p.skillLevels[sk]||0;
     const evolved=lv>=4;
-    const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5,finFunnel:2.2,novaPulse:3}[sk];
-    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8,finFunnel:1.6,novaPulse:1.5}[sk];
+    const base={fireball:3,lightning:2,iceRing:3,wind:4,swordStorm:2.5,finFunnel:2.2,novaPulse:3,trident:2.8}[sk];
+    const evolvedBase={fireball:2.5,lightning:1.5,iceRing:2.0,wind:3.0,swordStorm:1.8,finFunnel:1.6,novaPulse:1.5,trident:2.0}[sk];
     const b=evolved?evolvedBase:base;
     const lvFactor=Math.min(lv,9);
     const raw=Math.max(0.3, b/(1+lvFactor*0.18));
@@ -558,6 +570,7 @@ function update(dt){
       if(sk==='swordStorm') fireSwordStorm();
       if(sk==='finFunnel') fireFinFunnel();
       if(sk==='novaPulse') fireNovaPulse();
+      if(sk==='trident') fireTrident();
     }
   });
 
@@ -571,7 +584,8 @@ function update(dt){
        pr.type==='stormCloud'||pr.type==='boltFlash'||pr.type==='boltChain'||
        pr.type==='blizzardAura'||pr.type==='iceShockwave'||pr.type==='fireZone'||
        pr.type==='swordProj'||pr.type==='funnelBeam'||pr.type==='funnelOrbit'||
-       pr.type==='novaRing'||pr.type==='novaSpark') return true;
+       pr.type==='novaRing'||pr.type==='novaSpark'||pr.type==='tridentSpear'||
+       pr.type==='voidShockwave') return true;
 
     // ---- METEOR — falls from top ----
     if(pr.type==='meteor'){
@@ -713,7 +727,77 @@ function update(dt){
     }
     return true;
   });
-  G.swordProjCount=G.projs.filter(pr=>pr.type==='swordProj').length;
+  // void shockwave — enemy attack ring that damages the player
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='voidShockwave') return true;
+    pr.radius+=pr.growRate*dt; pr.life-=dt;
+    if(pr.life<=0||pr.radius>=pr.maxR) return false;
+    // Check if ring hits player
+    const dp=dist(G.p,{x:pr.cx,y:pr.cy});
+    if(!pr._hitPlayer&&dp<pr.radius+G.p.r&&dp>pr.radius-12){
+      if(G.p.invTimer<=0&&!G.p._godMode){
+        G.p.hp-=pr.dmg; G.p.invTimer=30;
+        spawnBurst(G.p.x,G.p.y,'#440088',6);
+        if(G.p.hp<=0){G.p.hp=0;endGame();}
+      }
+      pr._hitPlayer=true;
+    }
+    return true;
+  });
+  G.projs=G.projs.filter(pr=>{
+    if(pr.type!=='tridentSpear') return true;
+    pr.life-=dt;
+    if(pr.life<=0) return false;
+
+    // Homing — gentle steering toward nearest enemy
+    if(pr.homing&&G.enemies.length>0){
+      const nearest=G.enemies.reduce((a,b)=>dist(a,pr)<dist(b,pr)?a:b);
+      const d=norm({x:nearest.x-pr.x,y:nearest.y-pr.y});
+      const spd=Math.sqrt(pr.vx*pr.vx+pr.vy*pr.vy);
+      pr.vx=lerp(pr.vx,d.x*spd,0.04);
+      pr.vy=lerp(pr.vy,d.y*spd,0.04);
+    }
+
+    pr.x+=pr.vx*dt; pr.y+=pr.vy*dt;
+    pr.angle=Math.atan2(pr.vy,pr.vx);
+
+    // Bounce off screen edges
+    let bounced=false;
+    if(pr.x<pr.r){pr.x=pr.r;pr.vx=Math.abs(pr.vx);bounced=true;}
+    if(pr.x>W()-pr.r){pr.x=W()-pr.r;pr.vx=-Math.abs(pr.vx);bounced=true;}
+    if(pr.y<pr.r){pr.y=pr.r;pr.vy=Math.abs(pr.vy);bounced=true;}
+    if(pr.y>H()-pr.r){pr.y=H()-pr.r;pr.vy=-Math.abs(pr.vy);bounced=true;}
+
+    if(bounced){
+      pr.bounces++;
+      if(pr.bounces>pr.maxBounces) return false;
+      if(pr.growOnBounce) pr.r=Math.min(pr.r*1.25,28); // grow on bounce, max size 28
+      if(pr.splashOnBounce) spawnBurst(pr.x,pr.y,pr.col,4);
+      // Split into 2 on first bounce (lv6+)
+      if(pr.splitOnBounce&&pr.bounces===1&&!pr.isSplit){
+        const perpAngle=pr.angle+Math.PI/2;
+        const spd=Math.sqrt(pr.vx*pr.vx+pr.vy*pr.vy);
+        G.projs.push({...pr,x:pr.x,y:pr.y,
+          vx:Math.cos(perpAngle)*spd,vy:Math.sin(perpAngle)*spd,
+          isSplit:true,splitOnBounce:false,bounces:0,maxBounces:Math.floor(pr.maxBounces/2)});
+      }
+    }
+
+    // Hit all enemies along path
+    G.enemies.forEach(e=>{
+      if(dist(pr,e)<pr.r+e.r){
+        const dmgDealt=Math.round(pr.dmg*(1+pr.bounces*(pr.bounceDmgBonus||0)));
+        hitEnemy(e,dmgDealt);
+        if(pr.splashOnBounce){
+          G.enemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<50)hitEnemy(ne,Math.round(dmgDealt*0.4));});
+        }
+        spawnBurst(e.x,e.y,pr.col,3);
+        // Spears pierce — don't remove on hit
+      }
+    });
+
+    return true;
+  });
 
   // nova rings — expanding pulse rings
   G.projs=G.projs.filter(pr=>{
@@ -728,14 +812,11 @@ function update(dt){
       if(d<pr.radius+e.r&&d>pr.radius-18-e.r){
         pr.hitEnemies.add(e);
         hitEnemy(e,Math.round(pr.dmg));
-        // Push outward
-        const dir=norm({x:e.x-pr.cx,y:e.y-pr.cy});
-        e.pushVx=(e.pushVx||0)+dir.x*pr.pushForce;
-        e.pushVy=(e.pushVy||0)+dir.y*pr.pushForce;
-        if(pr.slow) e.slowTimer=Math.max(e.slowTimer||0,60);
+        // Slow only — no push
+        if(pr.slow) e.slowTimer=Math.max(e.slowTimer||0, pr.slowDur||60);
         if(pr.debuff) e.debuffTimer=180;
-        if(pr.mega) e.slowTimer=Math.max(e.slowTimer||0,120); // lv9 supernova stun
-        spawnBurst(e.x,e.y,'#aa88ff',4);
+        if(pr.mega) e.slowTimer=Math.max(e.slowTimer||0,120);
+        spawnBurst(e.x,e.y,'#aa88ff',3);
       }
     });
     return true;
@@ -764,6 +845,8 @@ function update(dt){
     }
     return true;
   });
+  G.swordProjCount=G.projs.filter(pr=>pr.type==='swordProj').length;
+
   G.projs=G.projs.filter(pr=>{
     if(pr.type!=='funnelBeam') return true;
     pr.life-=dt;
@@ -982,6 +1065,18 @@ function update(dt){
     if(e.slowTimer>0) e.slowTimer-=dt;
     if(e.shredTimer>0) e.shredTimer-=dt;
     if(e.debuffTimer>0) e.debuffTimer-=dt;
+    // Void Titan shockwave — fires expanding ring that damages the player every 3s
+    if(e.type==='voidTitan'&&e.shockwaveCD>0){
+      e.shockwaveCD-=dt;
+      if(e.shockwaveCD<=0){
+        e.shockwaveCD=180;
+        G.projs.push({type:'voidShockwave',cx:e.x,cy:e.y,
+          radius:e.r,maxR:250,growRate:(250-e.r)/40,
+          life:40,maxLife:40,dmg:Math.round(e.dmg*2)});
+        spawnBurst(e.x,e.y,'#440088',8);
+        G.shakeTimer=3;
+      }
+    }
     e.wobble+=dt*0.11;
     // apply push velocity
     if(e.pushVx||e.pushVy){
@@ -1093,7 +1188,7 @@ function fireFireball(){
       const t=G.enemies.filter(e=>e.x>0&&e.x<W()&&e.y>0&&e.y<H());
       if(!t.length) return; // no on-screen enemies, skip
       const target=t[Math.floor(Math.random()*t.length)];
-      const dmg=Math.round((600+elv*200)*p.damageMult*(p.skillDmgMult||1));
+      const dmg=Math.round((400+elv*150)*p.damageMult*(p.skillDmgMult||1));
       const tx=target.x+rnd(-25,25), ty=target.y+rnd(-25,25);
       const splashR=mega?260:130+elv*30;
       const r=mega?44:24+elv*5;
@@ -1136,7 +1231,7 @@ function fireLightning(){
     const stormDur=mega?600:280+elv*70;         // longer storm
     const boltRate=mega?2:6-elv*0.8;            // lv5=6fr, lv9=2fr between bolts
     const boltCount=mega?8:3+elv;               // lv5=3, lv6=4 ... lv9=8
-    const dmg=Math.round((250+elv*150)*p.damageMult*(p.skillDmgMult||1));
+    const dmg=Math.round((150+elv*80)*p.damageMult*(p.skillDmgMult||1));
     const stuns=false;
     const chains=lv>=5;
     const radius=mega?W()*1.1:150+elv*40; // lv5=150, lv6=190, lv7=230, lv8=270, lv9=full screen
@@ -1196,11 +1291,11 @@ function fireIceRing(){
 
     if(mega){
       // ---- ABSOLUTE ZERO — true screen wipe ----
-      const azDmg=Math.round(800*p.damageMult*(p.skillDmgMult||1));
+      const azDmg=Math.round(400*p.damageMult*(p.skillDmgMult||1));
       const snapshot=[...G.enemies];
       snapshot.forEach(e=>{
         if(e.hp>0){
-          e.freezeTimer=180; // 3 seconds frozen (was 12)
+          e.freezeTimer=60; // 1 second frozen
           hitEnemy(e,azDmg);
         }
       });
@@ -1240,7 +1335,7 @@ function fireIceRing(){
 
     // 1) Burst of blizzard shards outward
     const waveShards=Math.min(24, 16+elv*3); // lv5=16, lv6=19, lv7=22, lv8=24, lv9=24
-    const dmg=Math.round((150+elv*80)*p.damageMult*(p.skillDmgMult||1));
+    const dmg=Math.round((80+elv*50)*p.damageMult*(p.skillDmgMult||1));
     const freezeDur=180+elv*50;
     const speed=5+elv*0.6;
     const splashOnFreeze=lv>=5;
@@ -1377,8 +1472,8 @@ function fireSwordStorm(){
     if(needed<=0) return;
 
     const dmg=mega
-      ? Math.round(900*p.damageMult*(p.skillDmgMult||1))
-      : Math.round((500+elv*200)*p.damageMult*(p.skillDmgMult||1));
+      ? Math.round(350*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((250+elv*100)*p.damageMult*(p.skillDmgMult||1));
 
     const hasEnemies=G.enemies&&G.enemies.length>0;
     const sorted=hasEnemies?[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p)):[];
@@ -1439,9 +1534,9 @@ function fireFinFunnel(){
 
   // Beam damage
   const dmg=mega
-    ? Math.round(2500*p.damageMult*(p.skillDmgMult||1))
+    ? Math.round(600*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((800+elv*300)*p.damageMult*(p.skillDmgMult||1))
+      ? Math.round((300+elv*100)*p.damageMult*(p.skillDmgMult||1))
       : Math.round((25+lv*15)*p.damageMult*(p.skillDmgMult||1)); // lv0=25, lv4=85 — deliberately weak pre-evolution
 
   const pierce=lv>=4||evolved;
@@ -1519,17 +1614,17 @@ function fireNovaPulse(){
   const mega=lv>=8;
 
   const dmg=mega
-    ? Math.round(1800*p.damageMult*(p.skillDmgMult||1))
+    ? Math.round(800*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((300+elv*150)*p.damageMult*(p.skillDmgMult||1))
+      ? Math.round((200+elv*80)*p.damageMult*(p.skillDmgMult||1))
       : Math.round((40+lv*30)*p.damageMult*(p.skillDmgMult||1));
 
   const maxR=mega?Math.max(W(),H())
     : evolved?(250+elv*60)
     : (130+lv*30);
 
-  const pushForce=evolved?8:4;
-  const slow=lv>=2;
+  const pushForce=0; // no push — just slow instead
+  const slow=true;   // always slow enemies hit by the ring
   const debuff=lv>=4; // enemies take +20% dmg for 3s
   const rings=evolved?3:lv>=3?2:1;
   const mega5th=lv>=5; // every 5th pulse is mega
@@ -1551,7 +1646,8 @@ function fireNovaPulse(){
       life:overcharge?80:45+lv*3,
       maxLife:overcharge?80:45+lv*3,
       dmg:overcharge?ringDmg*3:ringDmg,
-      pushForce:overcharge?pushForce*2:pushForce,
+      pushForce:0,  // no push at any level
+      slowDur:overcharge?180:evolved?90:60, // slow duration in frames — overcharge = 3s, evolved = 1.5s, base = 1s
       slow, debuff, mega, overcharge,
       hitEnemies:new Set(), // track hit enemies to avoid multi-hit
       col:overcharge?'rgba(255,160,0,'
@@ -1581,6 +1677,66 @@ function fireNovaPulse(){
   // Screen flash for overcharge/mega
   if(overcharge||mega) G.flashTimer=3;
   if(overcharge) G.shakeTimer=2;
+}
+
+function fireTrident(){
+  const p=G.p;
+  const lv=p.skillLevels.trident||0;
+  const evolved=lv>=4;
+  const elv=evolved?lv-4:0;
+  const mega=lv>=8;
+
+  const spearCount=mega?9:evolved?5+elv:3+lv;  // base: lv0=3,lv1=4,lv2=5,lv3=6,lv4=7 | evolved: lv4=5,lv5=6,lv6=7,lv7=8,lv8=9
+  const dmg=mega
+    ? Math.round(500*p.damageMult*(p.skillDmgMult||1))
+    : evolved
+      ? Math.round((200+elv*80)*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((50+lv*30)*p.damageMult*(p.skillDmgMult||1));
+
+  const spd=mega?10:evolved?8+elv*0.5:6+lv*0.3;
+  const maxBounces=mega?999:evolved?4+elv*2:2+lv;
+  const splashOnBounce=lv>=3;
+  const growOnBounce=evolved;
+  const splitOnBounce=lv>=5;
+  const homing=lv>=6;
+
+  // Track surge count for Lv8 tidal surge
+  p._tridentCount=(p._tridentCount||0)+1;
+  const tidalSurge=lv>=7&&(p._tridentCount%4===0);
+
+  // Aim toward nearest enemy or forward if none
+  let aimAngle=0;
+  if(G.enemies.length>0){
+    const nearest=G.enemies.reduce((a,b)=>dist(a,p)<dist(b,p)?a:b);
+    aimAngle=Math.atan2(nearest.y-p.y,nearest.x-p.x);
+  }
+
+  if(mega){
+    // 360° spread
+    for(let i=0;i<9;i++){
+      const angle=(Math.PI*2/9)*i;
+      G.projs.push({x:p.x,y:p.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,
+        type:'tridentSpear',dmg,angle,bounces:0,maxBounces,bounceDmgBonus:0,
+        r:8,splashOnBounce,growOnBounce,splitOnBounce:false,homing,
+        tidalSurge:false,life:600,col:'#00ddff',evolved,mega});
+    }
+  } else if(tidalSurge){
+    // One massive tidal surge spear
+    G.projs.push({x:p.x,y:p.y,vx:Math.cos(aimAngle)*spd*1.5,vy:Math.sin(aimAngle)*spd*1.5,
+      type:'tridentSpear',dmg:dmg*4,angle:aimAngle,bounces:0,maxBounces:maxBounces*2,bounceDmgBonus:0.3,
+      r:22,splashOnBounce:true,growOnBounce:true,splitOnBounce:false,homing,
+      tidalSurge:true,life:500,col:'#0088ff',evolved,mega:false});
+  } else {
+    // Fan spread centered on aim angle
+    const spread=evolved?Math.PI*0.8:Math.PI*0.5;
+    for(let i=0;i<spearCount;i++){
+      const angle=aimAngle-spread/2+(spread/(spearCount-1||1))*i;
+      G.projs.push({x:p.x,y:p.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,
+        type:'tridentSpear',dmg,angle,bounces:0,maxBounces,bounceDmgBonus:lv>=2?0.5:0,
+        r:evolved?9:7,splashOnBounce,growOnBounce,splitOnBounce,homing,
+        tidalSurge:false,life:400,col:evolved?'#00aaff':'#66ccff',evolved,mega:false});
+    }
+  }
 }
 
 function spawnWindParticles(x,y,r){
@@ -1617,17 +1773,21 @@ function makeEnemy(){
   if(w>=5  && r>0.78) type='skeleton';
   if(w>=7  && r>0.86) type='ghost';
   if(w>=10 && Math.random()<0.05) type='boss';
-  if(w>=15 && Math.random()<0.04) type='eliteBoss';   // new: armoured tank
-  if(w>=22 && Math.random()<0.025) type='megaBoss';   // new: giant destroyer
+  if(w>=15 && Math.random()<0.04) type='eliteBoss';
+  if(w>=20 && Math.random()<0.03) type='slimeKing';   // splits into smaller slimes on death
+  if(w>=22 && Math.random()<0.025) type='megaBoss';
+  if(w>=30 && Math.random()<0.018) type='voidTitan';   // massive black boss with shockwave
 
   const cfg={
-    slime:     {r:14, hp:120,  spd:0.9, col:'#4db870',  xp:5,  dmg:12},
-    bat:       {r:11, hp:90,   spd:1.7, col:'#9b59b6',  xp:4,  dmg:10},
-    skeleton:  {r:15, hp:220,  spd:1.0, col:'#d5d5c0',  xp:8,  dmg:18},
-    ghost:     {r:13, hp:170,  spd:1.2, col:'#aac0ff',  xp:7,  dmg:15},
-    boss:      {r:30, hp:1800, spd:0.6, col:'#D85A30',  xp:60, dmg:30},
-    eliteBoss: {r:42, hp:5000, spd:0.5, col:'#8B0000',  xp:150,dmg:40},
-    megaBoss:  {r:58, hp:14000,spd:0.4, col:'#1a0030',  xp:400,dmg:55},
+    slime:      {r:14, hp:120,   spd:0.9,  col:'#4db870',  xp:5,   dmg:12},
+    bat:        {r:11, hp:90,    spd:1.7,  col:'#9b59b6',  xp:4,   dmg:10},
+    skeleton:   {r:15, hp:220,   spd:1.0,  col:'#d5d5c0',  xp:8,   dmg:18},
+    ghost:      {r:13, hp:170,   spd:1.2,  col:'#aac0ff',  xp:7,   dmg:15},
+    boss:       {r:30, hp:1800,  spd:0.6,  col:'#D85A30',  xp:60,  dmg:30},
+    eliteBoss:  {r:42, hp:5000,  spd:0.5,  col:'#8B0000',  xp:150, dmg:40},
+    megaBoss:   {r:58, hp:14000, spd:0.4,  col:'#1a0030',  xp:400, dmg:55},
+    slimeKing:  {r:50, hp:8000,  spd:0.5,  col:'#00aa44',  xp:280, dmg:35},  // splits on death
+    voidTitan:  {r:70, hp:25000, spd:0.3,  col:'#0a0a0a',  xp:600, dmg:65},  // massive shockwave boss
   }[type];
 
   // HP scaling: piecewise linear — tough at high waves but never astronomically broken
@@ -1643,13 +1803,17 @@ function makeEnemy(){
   const xpScale=1+w*0.08;
 
   return{id:++_eid, type, x, y,
-    r:cfg.r, hp:cfg.hp*sc, maxHp:cfg.hp*sc,
+    r:cfg.r, hp:Math.round(cfg.hp*sc), maxHp:Math.round(cfg.hp*sc),
     spd:cfg.spd*(1+w*0.022), col:cfg.col,
     xp:Math.round(cfg.xp*xpScale),
     dmg:Math.round(cfg.dmg*(1+w*0.06)),
     wobble:rnd(0,Math.PI*2),
     hitFlash:0, freezeTimer:0, slowTimer:0, pushVx:0, pushVy:0,
-    shredTimer:0};
+    shredTimer:0, debuffTimer:0,
+    // special boss properties
+    shockwaveCD:type==='voidTitan'?180:0,  // void titan shockwave cooldown
+    splitGen:type==='slimeKing'?2:0,        // slimeKing split generation (2=king, 1=mini, 0=no split)
+  };
 }
 
 function hitEnemy(e,dmg){
@@ -1677,9 +1841,11 @@ function pickOrbTier(enemyType){
     bat:       [{t:1,n:3}],                               // 3 small
     skeleton:  [{t:2,n:2},{t:3,n:1}],                    // medium+large
     ghost:     [{t:2,n:2},{t:3,n:2}],                    // 2 medium+2 large
-    boss:      [{t:3,n:3},{t:4,n:3}],                    // large+gem
-    eliteBoss: [{t:3,n:4},{t:4,n:5}],                    // more large+gem
-    megaBoss:  [{t:3,n:6},{t:4,n:10}],                   // massive gem dump
+    boss:      [{t:3,n:3},{t:4,n:3}],
+    eliteBoss: [{t:3,n:4},{t:4,n:5}],
+    megaBoss:  [{t:3,n:6},{t:4,n:10}],
+    slimeKing: [{t:3,n:3},{t:4,n:4}],   // king drops gems
+    voidTitan: [{t:3,n:8},{t:4,n:15}],  // massive loot dump
   }[enemyType]||[{t:2,n:2}];
   return t;
 }
@@ -1688,7 +1854,7 @@ function killEnemy(e){
   const idx=G.enemies.indexOf(e);
   if(idx===-1) return;
   G.enemies.splice(idx,1);
-  const scores={boss:500,eliteBoss:1500,megaBoss:5000};
+  const scores={boss:500,eliteBoss:1500,megaBoss:5000,slimeKing:2000,voidTitan:8000};
   G.kills++; G.score+=(scores[e.type]||50);
 
   const onScreen=e.x>-e.r&&e.x<W()+e.r&&e.y>-e.r&&e.y<H()+e.r;
@@ -1723,6 +1889,38 @@ function killEnemy(e){
     }
   });
   if(G.p.vampirismAmt) healPlayer(G.p.vampirismAmt,true);
+
+  // Slime King splits into smaller slimes on death
+  if(e.splitGen&&e.splitGen>0){
+    const splitCount=e.splitGen===2?4:3; // king→4 minis, mini→3 tiny
+    const sc=G.wave<=10?1+G.wave*0.1:G.wave<=30?2.0+(G.wave-10)*0.3:8.0+(G.wave-30)*1.5;
+    for(let i=0;i<splitCount;i++){
+      const angle=(Math.PI*2/splitCount)*i+rnd(0,0.5);
+      const spd=2+rnd(0,1);
+      const isKing=e.splitGen===2;
+      const childR=isKing?28:16;
+      const childHp=isKing?Math.round(e.maxHp*0.3):Math.round(e.maxHp*0.25);
+      G.enemies.push({
+        id:++_eid,
+        type:'slimeKing',
+        x:e.x+Math.cos(angle)*e.r*1.2,
+        y:e.y+Math.sin(angle)*e.r*1.2,
+        r:childR,
+        hp:childHp, maxHp:childHp,
+        spd:e.spd*1.4,
+        col:isKing?'#00cc55':'#00ff88',
+        xp:Math.round(e.xp*0.3),
+        dmg:Math.round(e.dmg*0.6),
+        wobble:rnd(0,Math.PI*2),
+        hitFlash:0,freezeTimer:0,slowTimer:0,
+        pushVx:Math.cos(angle)*spd,pushVy:Math.sin(angle)*spd,
+        shredTimer:0,debuffTimer:0,
+        shockwaveCD:0,
+        splitGen:e.splitGen-1  // minis don't split again (splitGen=0)
+      });
+    }
+    spawnBurst(e.x,e.y,'#00ff88',12);
+  }
 }
 
 function healPlayer(amt,show){
@@ -2437,8 +2635,72 @@ function drawEnemy(e){
     ctx.fillStyle='rgba(220,180,255,0.8)';
     ctx.beginPath();ctx.ellipse(0,0,r*0.28,r*0.25,0,0,Math.PI*2);ctx.fill();
     ctx.restore();
+  } else if(e.type==='slimeKing'){
+    // Slime King — big green blob with crown and wobble, mini version is smaller
+    const isKing=e.splitGen===2;
+    const pulse=1+Math.sin(e.wobble*2)*0.05;
+    ctx.save();ctx.scale(pulse,pulse);
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.ellipse(0,0,r,r*0.88,0,0,Math.PI*2);ctx.fill();
+    // crown spikes
+    if(isKing){
+      ctx.fillStyle='#FFD700';
+      for(let i=0;i<5;i++){
+        const a=-Math.PI/2+(Math.PI*0.6/4)*i-Math.PI*0.3;
+        const h=i%2===0?r*0.55:r*0.35;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a-0.15)*r*0.85, Math.sin(a-0.15)*r*0.85);
+        ctx.lineTo(Math.cos(a)*( r*0.85+h), Math.sin(a)*(r*0.85+h));
+        ctx.lineTo(Math.cos(a+0.15)*r*0.85, Math.sin(a+0.15)*r*0.85);
+        ctx.closePath();ctx.fill();
+      }
+    }
+    // slime eyes
+    ctx.fillStyle='#003300';
+    ctx.beginPath();ctx.ellipse(-r*0.28,-r*0.15,r*0.13,r*0.18,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(r*0.28,-r*0.15,r*0.13,r*0.18,0,0,Math.PI*2);ctx.fill();
+    // HP-based rage tint at low health
+    if(e.hp/e.maxHp<0.3){
+      ctx.globalAlpha=0.4;
+      ctx.fillStyle='#ff4400';
+      ctx.beginPath();ctx.ellipse(0,0,r,r*0.88,0,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  } else if(e.type==='voidTitan'){
+    // Void Titan — massive black boss with purple void tendrils and shockwave warning
+    const pulse=1+Math.sin(e.wobble*1.2)*0.03;
+    ctx.save();ctx.scale(pulse,pulse);
+    // deep black core
+    ctx.fillStyle='#050508';
+    ctx.beginPath();ctx.ellipse(0,0,r,r*0.9,0,0,Math.PI*2);ctx.fill();
+    // void aura glow
+    ctx.globalAlpha=0.35+Math.sin(e.wobble*2)*0.1;
+    ctx.fillStyle='rgba(60,0,120,0.6)';
+    ctx.beginPath();ctx.ellipse(0,0,r*1.3,r*1.2,0,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;
+    // void tendrils — more than megaBoss
+    ctx.fillStyle='rgba(100,0,200,0.55)';
+    for(let i=0;i<14;i++){
+      const a=(Math.PI*2/14)*i+e.wobble*0.08;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r*1.5,a,a+0.18);ctx.closePath();ctx.fill();
+    }
+    // inner core — dark with crimson cracks
+    ctx.fillStyle='#0a0010';
+    ctx.beginPath();ctx.ellipse(0,0,r*0.65,r*0.6,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(180,0,255,0.8)';ctx.lineWidth=2;
+    for(let i=0;i<6;i++){
+      const a=(Math.PI*2/6)*i+e.wobble*0.2;
+      ctx.beginPath();ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(a)*r*0.6,Math.sin(a)*r*0.6);ctx.stroke();
+    }
+    // shockwave warning — pulses red when CD is low
+    if(e.shockwaveCD<60){
+      ctx.globalAlpha=(1-e.shockwaveCD/60)*0.5;
+      ctx.fillStyle='#ff0044';
+      ctx.beginPath();ctx.ellipse(0,0,r*0.4,r*0.36,0,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
   } else {
-    // slime, bat, skeleton, ghost — catch-all for basic enemies
     ctx.beginPath();ctx.ellipse(0,0,r,r*0.85,0,0,Math.PI*2);ctx.fill();
     if(e.type==='skeleton'){
       ctx.strokeStyle='rgba(200,210,190,0.35)';ctx.lineWidth=1.5;
@@ -2540,6 +2802,57 @@ function drawProj(pr){
     ctx.strokeStyle='rgba(255,255,255,0.95)';
     ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(pr.cx,pr.cy,Math.max(0,pr.radius-4),0,Math.PI*2);ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // void shockwave — enemy attack ring
+  if(pr.type==='voidShockwave'){
+    const f=pr.life/(pr.maxLife||40);
+    ctx.save();
+    ctx.globalAlpha=f*0.35;
+    ctx.fillStyle='rgba(80,0,180,0.4)';
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=f*0.8;
+    ctx.strokeStyle='rgba(180,0,255,0.9)';ctx.lineWidth=3+f*3;
+    ctx.beginPath();ctx.arc(pr.cx,pr.cy,pr.radius,0,Math.PI*2);ctx.stroke();
+    ctx.restore(); return;
+  }
+
+  // trident spear
+  if(pr.type==='tridentSpear'){
+    ctx.save();
+    const f=Math.min(1,pr.life/60);
+    // glow trail
+    ctx.globalAlpha=f*0.3;
+    ctx.strokeStyle=pr.col||'#66ccff';
+    ctx.lineWidth=pr.r*1.5;
+    ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(pr.x-Math.cos(pr.angle)*pr.r*2.5, pr.y-Math.sin(pr.angle)*pr.r*2.5);
+    ctx.lineTo(pr.x,pr.y);
+    ctx.stroke();
+    // spear body
+    ctx.globalAlpha=f*0.95;
+    ctx.translate(pr.x,pr.y);
+    ctx.rotate((pr.angle||0)+Math.PI/2);
+    const SL=pr.r*2.8, SW=pr.r*0.5;
+    // shaft
+    ctx.fillStyle=pr.tidalSurge?'#0055cc':pr.evolved?'#0088ff':'#aaddff';
+    ctx.fillRect(-SW*0.4,-SL*0.5,SW*0.8,SL*0.9);
+    // tip
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0,-SL);ctx.lineTo(-SW,-SL*0.45);ctx.lineTo(0,-SL*0.5);ctx.lineTo(SW,-SL*0.45);
+    ctx.closePath();ctx.fill();
+    // prongs
+    ctx.strokeStyle=pr.col||'#66ccff';
+    ctx.lineWidth=SW*0.5;
+    ctx.beginPath();ctx.moveTo(-SW*1.5,-SL*0.5);ctx.lineTo(-SW*1.5,-SL*0.72);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(SW*1.5,-SL*0.5);ctx.lineTo(SW*1.5,-SL*0.72);ctx.stroke();
+    // glow
+    ctx.globalAlpha=f*0.2;
+    ctx.fillStyle=pr.col||'#66ccff';
+    ctx.beginPath();ctx.arc(0,-SL*0.3,pr.r*1.2,0,Math.PI*2);ctx.fill();
     ctx.restore(); return;
   }
 
@@ -3200,7 +3513,7 @@ function adminSkill(sk){
 }
 function adminMaxAllSkills(){
   if(!G) return;
-  ['fireball','lightning','iceRing','wind','swordStorm','finFunnel','novaPulse'].forEach(sk=>{
+  ['fireball','lightning','iceRing','wind','swordStorm','finFunnel','novaPulse','trident'].forEach(sk=>{
     const p=G.p;
     if(!p.skills.includes(sk)) p.skills.push(sk);
     p.skillLevels[sk]=8; // 8 = max (lv9 in display)
