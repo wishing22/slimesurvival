@@ -786,7 +786,7 @@ function update(dt){
     // Hit all enemies along path
     G.enemies.forEach(e=>{
       if(dist(pr,e)<pr.r+e.r){
-        const dmgDealt=Math.round(pr.dmg*(1+pr.bounces*(pr.bounceDmgBonus||0)));
+        const dmgDealt=Math.round(pr.dmg*(1+Math.min(pr.bounces,5)*(pr.bounceDmgBonus||0)));
         hitEnemy(e,dmgDealt);
         if(pr.splashOnBounce){
           G.enemies.forEach(ne=>{if(ne!==e&&dist(ne,e)<50)hitEnemy(ne,Math.round(dmgDealt*0.4));});
@@ -1692,10 +1692,10 @@ function fireTrident(){
 
   const spearCount=mega?9:evolved?5+elv:3+lv;  // base: lv0=3,lv1=4,lv2=5,lv3=6,lv4=7 | evolved: lv4=5,lv5=6,lv6=7,lv7=8,lv8=9
   const dmg=mega
-    ? Math.round(500*p.damageMult*(p.skillDmgMult||1))
+    ? Math.round(180*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((200+elv*80)*p.damageMult*(p.skillDmgMult||1))
-      : Math.round((50+lv*30)*p.damageMult*(p.skillDmgMult||1));
+      ? Math.round((80+elv*25)*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((20+lv*10)*p.damageMult*(p.skillDmgMult||1));
 
   const spd=mega?10:evolved?8+elv*0.5:6+lv*0.3;
   const maxBounces=mega?999:evolved?4+elv*2:2+lv;
