@@ -424,7 +424,7 @@ const SKILL_UPGRADES={
     {name:'Trident Lv 4',           icon:'🔱',   desc:'Spears explode on each bounce · small splash damage'},
     {name:"🌊 POSEIDON'S WRATH — Lv 5",icon:'🌊', desc:"EVOLVES! Spears grow larger each bounce · leave water trail"},
     {name:"Poseidon's Wrath Lv 6",  icon:'🌊',   desc:'Spears split into 2 on first bounce · more bounces allowed'},
-    {name:"Poseidon's Wrath Lv 7",  icon:'🌊',   desc:'Spears home slightly toward enemies between bounces', minWave:12},
+    {name:"Poseidon's Wrath Lv 7",  icon:'🌊',   desc:'+1 spear · spears grow faster on each bounce', minWave:12},
     {name:"Poseidon's Wrath Lv 8",  icon:'🌊',   desc:'Tidal surge: every 4th volley fires a massive wave spear', minWave:18},
     {name:"Poseidon's Wrath Lv 9",  icon:'🌊',   desc:'OCEAN FURY: 9 spears in full 360° · bounce endlessly · screen-wide chaos', minWave:25},
   ],
@@ -938,15 +938,19 @@ function update(dt){
     // continuous: every frame, slow/freeze all enemies inside the zone
     G.enemies.forEach(e=>{
       if(dist(e,G.p)<pr.r+e.r){
-        // slow them by resetting their freeze/slow timer continuously
-        e.slowTimer=Math.max(e.slowTimer,8); // keep refreshed so they stay slowed
-        e.freezeTimer=Math.max(e.freezeTimer, pr.freezeDur||0);
-        // low per-frame damage (dmg is per-second, convert to per-frame)
+        // Always slow while inside
+        e.slowTimer=Math.max(e.slowTimer||0,8);
+        // Freeze only every 5 seconds per enemy — use _blizzardFreezeCD
+        if(!e._blizzardFreezeCD||e._blizzardFreezeCD<=0){
+          e.freezeTimer=Math.max(e.freezeTimer||0, pr.freezeDur||0);
+          e._blizzardFreezeCD=300; // 5 seconds at 60fps
+        } else {
+          e._blizzardFreezeCD-=dt;
+        }
+        // low per-frame damage
         e.hp-=pr.dmgPerFrame;
         if(e.hp<=0) killEnemy(e);
-        // ice particle spray
         if(Math.random()<0.04){
-          const d=norm({x:e.x-G.p.x,y:e.y-G.p.y});
           G.particles.push({x:e.x,y:e.y,
             vx:rnd(-1.5,1.5),vy:rnd(-2,-0.5),
             r:rnd(2,4),col:'#b0e0ff',life:rnd(12,22)});
@@ -976,7 +980,7 @@ function update(dt){
     if(pr.life<=0) return false;
 
     // Aura damage — enemies INSIDE the circle take continuous bonus damage every frame
-    const auraDmgPerFrame=Math.round(pr.dmg*0.08); // ~8% of bolt dmg per frame = ~480% per second bonus
+    const auraDmgPerFrame=Math.round(pr.dmg*0.02); // 2% per frame = ~72 dmg/sec at lv5
     G.enemies.forEach(e=>{
       if(dist(e,{x:pr.cx,y:pr.cy})<pr.radius){
         e.hp-=auraDmgPerFrame;
@@ -1228,10 +1232,10 @@ function fireLightning(){
     const elv=lv-4; // 0-4
     const mega=lv>=8; // Supercell
 
-    const stormDur=mega?600:280+elv*70;         // longer storm
-    const boltRate=mega?2:6-elv*0.8;            // lv5=6fr, lv9=2fr between bolts
-    const boltCount=mega?8:3+elv;               // lv5=3, lv6=4 ... lv9=8
-    const dmg=Math.round((150+elv*80)*p.damageMult*(p.skillDmgMult||1));
+    const stormDur=mega?600:280+elv*70;
+    const boltRate=mega?4:8-elv*0.8;            // slower: lv5=8fr, lv9=4fr between bolts
+    const boltCount=mega?5:2+elv;               // fewer: lv5=2, lv6=3, lv7=4, lv8=5, lv9=5
+    const dmg=Math.round((80+elv*40)*p.damageMult*(p.skillDmgMult||1)); // halved
     const stuns=false;
     const chains=lv>=5;
     const radius=mega?W()*1.1:150+elv*40; // lv5=150, lv6=190, lv7=230, lv8=270, lv9=full screen
@@ -1614,10 +1618,10 @@ function fireNovaPulse(){
   const mega=lv>=8;
 
   const dmg=mega
-    ? Math.round(800*p.damageMult*(p.skillDmgMult||1))
+    ? Math.round(400*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((200+elv*80)*p.damageMult*(p.skillDmgMult||1))
-      : Math.round((40+lv*30)*p.damageMult*(p.skillDmgMult||1));
+      ? Math.round((120+elv*50)*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((20+lv*12)*p.damageMult*(p.skillDmgMult||1));
 
   const maxR=mega?Math.max(W(),H())
     : evolved?(250+elv*60)
@@ -1698,7 +1702,7 @@ function fireTrident(){
   const splashOnBounce=lv>=3;
   const growOnBounce=evolved;
   const splitOnBounce=lv>=5;
-  const homing=lv>=6;
+  const homing=false; // no homing — bouncing is the core mechanic, homing kills speed
 
   // Track surge count for Lv8 tidal surge
   p._tridentCount=(p._tridentCount||0)+1;
