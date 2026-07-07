@@ -1192,7 +1192,7 @@ function fireFireball(){
       const t=G.enemies.filter(e=>e.x>0&&e.x<W()&&e.y>0&&e.y<H());
       if(!t.length) return; // no on-screen enemies, skip
       const target=t[Math.floor(Math.random()*t.length)];
-      const dmg=Math.round((400+elv*150)*p.damageMult*(p.skillDmgMult||1));
+      const dmg=Math.round((200+elv*80)*p.damageMult*(p.skillDmgMult||1));
       const tx=target.x+rnd(-25,25), ty=target.y+rnd(-25,25);
       const splashR=mega?260:130+elv*30;
       const r=mega?44:24+elv*5;
@@ -1235,7 +1235,7 @@ function fireLightning(){
     const stormDur=mega?600:280+elv*70;
     const boltRate=mega?4:8-elv*0.8;            // slower: lv5=8fr, lv9=4fr between bolts
     const boltCount=mega?5:2+elv;               // fewer: lv5=2, lv6=3, lv7=4, lv8=5, lv9=5
-    const dmg=Math.round((80+elv*40)*p.damageMult*(p.skillDmgMult||1)); // halved
+    const dmg=Math.round((50+elv*25)*p.damageMult*(p.skillDmgMult||1));
     const stuns=false;
     const chains=lv>=5;
     const radius=mega?W()*1.1:150+elv*40; // lv5=150, lv6=190, lv7=230, lv8=270, lv9=full screen
@@ -1339,7 +1339,7 @@ function fireIceRing(){
 
     // 1) Burst of blizzard shards outward
     const waveShards=Math.min(24, 16+elv*3); // lv5=16, lv6=19, lv7=22, lv8=24, lv9=24
-    const dmg=Math.round((80+elv*50)*p.damageMult*(p.skillDmgMult||1));
+    const dmg=Math.round((40+elv*25)*p.damageMult*(p.skillDmgMult||1));
     const freezeDur=180+elv*50;
     const speed=5+elv*0.6;
     const splashOnFreeze=lv>=5;
@@ -1354,7 +1354,7 @@ function fireIceRing(){
     // 2) Persistent blizzard aura — much higher damage
     for(let _i=G.projs.length-1;_i>=0;_i--){if(G.projs[_i].type==='blizzardAura')G.projs.splice(_i,1);}
     const auraR=130+elv*35;
-    const dmgPerSec=(60+elv*30)*(p.skillDmgMult||1)*(p.damageMult||1);
+    const dmgPerSec=(30+elv*15)*(p.skillDmgMult||1)*(p.damageMult||1);
     G.projs.push({
       type:'blizzardAura',
       r:auraR,
@@ -1477,7 +1477,7 @@ function fireSwordStorm(){
 
     const dmg=mega
       ? Math.round(350*p.damageMult*(p.skillDmgMult||1))
-      : Math.round((250+elv*100)*p.damageMult*(p.skillDmgMult||1));
+      : Math.round((100+elv*50)*p.damageMult*(p.skillDmgMult||1));
 
     const hasEnemies=G.enemies&&G.enemies.length>0;
     const sorted=hasEnemies?[...G.enemies].sort((a,b)=>dist(a,p)-dist(b,p)):[];
@@ -1540,7 +1540,7 @@ function fireFinFunnel(){
   const dmg=mega
     ? Math.round(600*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((300+elv*100)*p.damageMult*(p.skillDmgMult||1))
+      ? Math.round((150+elv*60)*p.damageMult*(p.skillDmgMult||1))
       : Math.round((25+lv*15)*p.damageMult*(p.skillDmgMult||1)); // lv0=25, lv4=85 — deliberately weak pre-evolution
 
   const pierce=lv>=4||evolved;
@@ -1620,7 +1620,7 @@ function fireNovaPulse(){
   const dmg=mega
     ? Math.round(400*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((120+elv*50)*p.damageMult*(p.skillDmgMult||1))
+      ? Math.round((60+elv*25)*p.damageMult*(p.skillDmgMult||1))
       : Math.round((20+lv*12)*p.damageMult*(p.skillDmgMult||1));
 
   const maxR=mega?Math.max(W(),H())
@@ -1692,10 +1692,10 @@ function fireTrident(){
 
   const spearCount=mega?9:evolved?5+elv:3+lv;  // base: lv0=3,lv1=4,lv2=5,lv3=6,lv4=7 | evolved: lv4=5,lv5=6,lv6=7,lv7=8,lv8=9
   const dmg=mega
-    ? Math.round(180*p.damageMult*(p.skillDmgMult||1))
+    ? Math.round(120*p.damageMult*(p.skillDmgMult||1))
     : evolved
-      ? Math.round((80+elv*25)*p.damageMult*(p.skillDmgMult||1))
-      : Math.round((20+lv*10)*p.damageMult*(p.skillDmgMult||1));
+      ? Math.round((40+elv*12)*p.damageMult*(p.skillDmgMult||1))
+      : Math.round((12+lv*6)*p.damageMult*(p.skillDmgMult||1));
 
   const spd=mega?10:evolved?8+elv*0.5:6+lv*0.3;
   const maxBounces=mega?999:evolved?4+elv*2:2+lv;
@@ -1727,7 +1727,7 @@ function fireTrident(){
   } else if(tidalSurge){
     // One massive tidal surge spear
     G.projs.push({x:p.x,y:p.y,vx:Math.cos(aimAngle)*spd*1.5,vy:Math.sin(aimAngle)*spd*1.5,
-      type:'tridentSpear',dmg:dmg*4,angle:aimAngle,bounces:0,maxBounces:maxBounces*2,bounceDmgBonus:0.3,
+      type:'tridentSpear',dmg:dmg*4,angle:aimAngle,bounces:0,maxBounces:maxBounces*2,bounceDmgBonus:0.15,
       r:22,splashOnBounce:true,growOnBounce:true,splitOnBounce:false,homing,
       tidalSurge:true,life:500,col:'#0088ff',evolved,mega:false});
   } else {
@@ -1736,7 +1736,7 @@ function fireTrident(){
     for(let i=0;i<spearCount;i++){
       const angle=aimAngle-spread/2+(spread/(spearCount-1||1))*i;
       G.projs.push({x:p.x,y:p.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,
-        type:'tridentSpear',dmg,angle,bounces:0,maxBounces,bounceDmgBonus:lv>=2?0.5:0,
+        type:'tridentSpear',dmg,angle,bounces:0,maxBounces,bounceDmgBonus:lv>=2?0.25:0,
         r:evolved?9:7,splashOnBounce,growOnBounce,splitOnBounce,homing,
         tidalSurge:false,life:400,col:evolved?'#00aaff':'#66ccff',evolved,mega:false});
     }
@@ -1787,11 +1787,11 @@ function makeEnemy(){
     bat:        {r:11, hp:90,    spd:1.7,  col:'#9b59b6',  xp:4,   dmg:10},
     skeleton:   {r:15, hp:220,   spd:1.0,  col:'#d5d5c0',  xp:8,   dmg:18},
     ghost:      {r:13, hp:170,   spd:1.2,  col:'#aac0ff',  xp:7,   dmg:15},
-    boss:       {r:30, hp:1800,  spd:0.6,  col:'#D85A30',  xp:60,  dmg:30},
-    eliteBoss:  {r:42, hp:5000,  spd:0.5,  col:'#8B0000',  xp:150, dmg:40},
-    megaBoss:   {r:58, hp:14000, spd:0.4,  col:'#1a0030',  xp:400, dmg:55},
-    slimeKing:  {r:50, hp:8000,  spd:0.5,  col:'#00aa44',  xp:280, dmg:35},  // splits on death
-    voidTitan:  {r:70, hp:25000, spd:0.3,  col:'#0a0a0a',  xp:600, dmg:65},  // massive shockwave boss
+    boss:       {r:30, hp:5000,   spd:0.6,  col:'#D85A30',  xp:60,  dmg:30},
+    eliteBoss:  {r:42, hp:14000,  spd:0.5,  col:'#8B0000',  xp:150, dmg:40},
+    megaBoss:   {r:58, hp:40000,  spd:0.4,  col:'#1a0030',  xp:400, dmg:55},
+    slimeKing:  {r:50, hp:22000,  spd:0.5,  col:'#00aa44',  xp:280, dmg:35},  // splits on death
+    voidTitan:  {r:70, hp:80000,  spd:0.3,  col:'#0a0a0a',  xp:600, dmg:65},  // massive shockwave boss
   }[type];
 
   // HP scaling: piecewise linear — tough at high waves but never astronomically broken
