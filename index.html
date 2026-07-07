@@ -1076,7 +1076,7 @@ function update(dt){
         e.shockwaveCD=180;
         G.projs.push({type:'voidShockwave',cx:e.x,cy:e.y,
           radius:e.r,maxR:250,growRate:(250-e.r)/40,
-          life:40,maxLife:40,dmg:Math.round(e.dmg*2)});
+          life:40,maxLife:40,dmg:Math.round(e.dmg*0.5)}); // shockwave warning — hurts but not instant kill
         spawnBurst(e.x,e.y,'#440088',8);
         G.shakeTimer=3;
       }
